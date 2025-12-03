@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AcePi Lite – Hybrid Accounting & Tax Engine (CSV-Enabled)</title>
+  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Multi-Country CSV)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -139,7 +139,7 @@
   <header>
     <div>
       <h1>AcePi Lite – Hybrid Accounting & Tax Engine</h1>
-      <span>Web2 + Web3 + Nigerian Tax Intelligence • CSV-enabled demo</span>
+      <span>Multi-country • Web2 + Web3 • VAT & WHT aware</span>
     </div>
     <div style="text-align:right;font-size:11px;opacity:0.8;">
       Ace Consulting & Analytics (ACA)<br />
@@ -151,18 +151,19 @@
     <section class="card">
       <h2>1. Input Data – JSON or CSV</h2>
       <p style="font-size:12px;opacity:0.9;">
-        You can either paste a full AcePi JSON payload, load the Master Demo Dataset, or upload a CSV file using the AcePi standard format.
+        Paste a full AcePi JSON payload, load the Master Demo Dataset, or upload a CSV file.
+        CSV supports NG, UK, EU, US tax logic and basic on-chain fields.
       </p>
 
       <div class="pill-row">
         <span class="tag">JSON: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
-        <span class="tag">CSV: date, description, amount, direction, currency, counterparty_type, payment_channel</span>
+        <span class="tag">CSV: NG + UK + EU + US + on-chain</span>
         <span class="tag">Engine: Rule-based AcePi Lite (offline)</span>
       </div>
 
       <div class="row">
         <div>
-          <label for="csvFile">Upload CSV (AcePi template format)</label>
+          <label for="csvFile">Upload CSV (AcePi advanced template)</label>
           <input id="csvFile" type="file" accept=".csv" />
         </div>
         <button type="button" class="btn-secondary" id="loadCsvBtn">
@@ -186,14 +187,23 @@
     <section class="card">
       <h2>2. AcePi Lite Output</h2>
       <p style="font-size:12px;opacity:0.9;">
-        The result below is generated locally in your browser – no external API. This simulates how AcePi will behave once wired to the full AI engine.
+        Output is generated locally in your browser – no external API. For production,
+        connect this shell to the full AcePi LLM engine.
       </p>
       <pre id="output">(no response yet)</pre>
     </section>
   </main>
 
   <script>
-    // Master Demo payload
+    // Default multi-country tax profiles (very simplified)
+    const defaultTaxProfiles = {
+      NG: { vat_rate: 0.075, vat_applicable: true, wht_service: 0.10, wht_rent: 0.10 },
+      UK: { vat_rate: 0.20, vat_applicable: true, wht_service: 0.00, wht_rent: 0.00 },
+      EU: { vat_rate: 0.21, vat_applicable: true, wht_service: 0.00, wht_rent: 0.00 },
+      US: { vat_rate: 0.00, vat_applicable: false, wht_service: 0.00, wht_rent: 0.00 }
+    };
+
+    // Master Demo payload (still NG-focused, but engine now supports multi-country overrides)
     const masterDemoPayload = {
       "business_profile": {
         "business_name": "Ace Hybrid Retail & Web3 Hub",
@@ -398,7 +408,7 @@
       const headers = lines[0].split(",").map(h => h.trim());
       const rows = [];
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(","); // simple parser; avoid commas inside fields for now
+        const cols = lines[i].split(","); // simple CSV (no quoted commas)
         if (cols.length === 1 && cols[0].trim() === "") continue;
         const row = {};
         headers.forEach((h, idx) => {
@@ -407,6 +417,14 @@
         rows.push(row);
       }
       return rows;
+    }
+
+    function toBool(val) {
+      if (val === undefined || val === null) return null;
+      const s = String(val).trim().toLowerCase();
+      if (["true","1","yes","y"].includes(s)) return true;
+      if (["false","0","no","n"].includes(s)) return false;
+      return null;
     }
 
     loadCsvBtn.addEventListener("click", () => {
@@ -424,7 +442,6 @@
             statusEl.textContent = "CSV appears empty or invalid. Make sure it has a header row.";
             return;
           }
-          // Build transactions[] from CSV rows
           const transactions = rows.map((row, idx) => ({
             id: row.id || `CSV-${idx + 1}`,
             date: row.date || row.Date || "",
@@ -433,7 +450,17 @@
             description: row.description || row.Description || "",
             direction: (row.direction || row.Direction || "").toLowerCase(),
             counterparty_type: row.counterparty_type || row.counterparty || null,
-            payment_channel: row.payment_channel || row.channel || null
+            payment_channel: row.payment_channel || row.channel || null,
+            chain: row.chain || row.Chain || null,
+            token_symbol: row.token_symbol || row.Token || row.TokenSymbol || null,
+            gas_fee: row.gas_fee ? Number(row.gas_fee) : null,
+            gas_currency: row.gas_currency || null,
+            country: row.country || row.Country || null,
+            tax_country: row.tax_country || row.TaxCountry || null,
+            vat_applicable_override: toBool(row.vat_applicable),
+            vat_rate_override: row.vat_rate ? Number(row.vat_rate) : null,
+            wht_applicable_override: toBool(row.wht_applicable),
+            wht_rate_override: row.wht_rate ? Number(row.wht_rate) : null
           }));
 
           const payloadFromCsv = {
@@ -502,11 +529,11 @@
       const coa = payload.chart_of_accounts || [];
       const txs = payload.transactions || [];
 
-      const vatApplicable = !!tp.vat_applicable;
-      const vatRate = typeof tp.vat_rate === "number" ? tp.vat_rate : 0;
-      const whtEnabled = !!tp.withholding_tax_enabled;
-      const whtServiceRate = typeof tp.default_wht_service_rate === "number" ? tp.default_wht_service_rate : 0;
-      const whtRentRate = typeof tp.default_wht_rent_rate === "number" ? tp.default_wht_rent_rate : 0.1;
+      const globalVatApplicable = !!tp.vat_applicable;
+      const globalVatRate = typeof tp.vat_rate === "number" ? tp.vat_rate : 0;
+      const globalWhtEnabled = !!tp.withholding_tax_enabled;
+      const globalWhtServiceRate = typeof tp.default_wht_service_rate === "number" ? tp.default_wht_service_rate : 0;
+      const globalWhtRentRate = typeof tp.default_wht_rent_rate === "number" ? tp.default_wht_rent_rate : 0.1;
 
       let totalInflows = 0;
       let totalOutflows = 0;
@@ -521,6 +548,11 @@
         if (tx.direction === "in") totalInflows += amount;
         if (tx.direction === "out") totalOutflows += amount;
 
+        // Determine tax country defaults
+        const taxCountryCode = (tx.tax_country || tp.country || bp.country || "NG").toString().toUpperCase();
+        const countryDefaults = defaultTaxProfiles[taxCountryCode] || defaultTaxProfiles["NG"];
+
+        // Determine debit/credit accounts
         let debitAcc, creditAcc;
         if (tx.direction === "in") {
           if (tx.chain === "base" && tx.currency === "USDC") {
@@ -567,6 +599,7 @@
           creditAcc = findAccount(coa, "9999");
         }
 
+        // VAT / WHT logic with overrides
         let vatApplicableTx = false;
         let vatAmount = 0;
         let vatType = "none";
@@ -575,20 +608,52 @@
         let taxCategory = "undetermined";
         let notes = "";
 
-        if (category === "income" && vatApplicable) {
+        const vatOverrideFlag = tx.vat_applicable_override;
+        const vatRateOverride = typeof tx.vat_rate_override === "number" && !Number.isNaN(tx.vat_rate_override)
+          ? tx.vat_rate_override
+          : null;
+
+        const whtOverrideFlag = tx.wht_applicable_override;
+        const whtRateOverride = typeof tx.wht_rate_override === "number" && !Number.isNaN(tx.wht_rate_override)
+          ? tx.wht_rate_override
+          : null;
+
+        const effectiveVatApplicable =
+          vatOverrideFlag !== null
+            ? vatOverrideFlag
+            : (countryDefaults.vat_applicable && globalVatApplicable);
+
+        const effectiveVatRate =
+          vatRateOverride !== null
+            ? vatRateOverride
+            : (globalVatRate || countryDefaults.vat_rate || 0);
+
+        const effectiveWhtServiceRate =
+          whtRateOverride !== null
+            ? whtRateOverride
+            : (countryDefaults.wht_service ?? globalWhtServiceRate);
+
+        const effectiveWhtRentRate =
+          whtRateOverride !== null
+            ? whtRateOverride
+            : (countryDefaults.wht_rent ?? globalWhtRentRate);
+
+        const whtEnabledEffective = globalWhtEnabled || (effectiveWhtServiceRate > 0 || effectiveWhtRentRate > 0);
+
+        if (category === "income" && effectiveVatApplicable) {
           vatApplicableTx = true;
-          const baseVal = amount / (1 + vatRate);
+          const baseVal = amount / (1 + effectiveVatRate);
           vatAmount = +(amount - baseVal).toFixed(2);
           vatType = "output";
           taxCategory = "taxable income";
-          notes = "Income transaction; treated as taxable revenue with output VAT.";
-        } else if (category === "expense" && vatApplicable && nature !== "gas_fee_expense") {
+          notes = `Income transaction in ${taxCountryCode}; treated as taxable revenue with output VAT.`;
+        } else if (category === "expense" && effectiveVatApplicable && nature !== "gas_fee_expense") {
           vatApplicableTx = true;
-          const baseVal = amount / (1 + vatRate);
+          const baseVal = amount / (1 + effectiveVatRate);
           vatAmount = +(amount - baseVal).toFixed(2);
           vatType = "input";
           taxCategory = "allowable expense";
-          notes = "Business expense; treated as allowable with input VAT.";
+          notes = `Business expense in ${taxCountryCode}; treated as allowable with input VAT.`;
         } else if (category === "expense" && nature === "gas_fee_expense") {
           vatApplicableTx = false;
           vatAmount = 0;
@@ -597,16 +662,27 @@
           notes = "Gas/network fee; treated as allowable expense without VAT.";
         }
 
-        if (whtEnabled && tx.direction === "out") {
+        if (whtEnabledEffective && tx.direction === "out") {
           if (nature === "service_expense" || nature === "onchain_expense") {
-            whtApplicableTx = true;
-            whtAmount = +(amount * whtServiceRate).toFixed(2);
-            notes += (notes ? " " : "") + "Withholding tax on services applied.";
+            const rate = effectiveWhtServiceRate || 0;
+            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === true)) {
+              whtApplicableTx = true;
+              whtAmount = +(amount * rate).toFixed(2);
+              notes += (notes ? " " : "") + `Withholding tax on services applied at ${(rate * 100).toFixed(1)}%.`;
+            }
           } else if (nature === "rent_expense") {
-            whtApplicableTx = true;
-            whtAmount = +(amount * whtRentRate).toFixed(2);
-            notes += (notes ? " " : "") + "Withholding tax on rent applied.";
+            const rate = effectiveWhtRentRate || 0;
+            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === true)) {
+              whtApplicableTx = true;
+              whtAmount = +(amount * rate).toFixed(2);
+              notes += (notes ? " " : "") + `Withholding tax on rent applied at ${(rate * 100).toFixed(1)}%.`;
+            }
           }
+        }
+
+        if (whtOverrideFlag === false) {
+          whtApplicableTx = false;
+          whtAmount = 0;
         }
 
         if (!taxCategory || taxCategory === "undetermined") {
@@ -631,6 +707,7 @@
             matched_account_name: creditAcc.name || "Unclassified Transaction",
             confidence_score: confidence
           },
+          tax_country: taxCountryCode,
           ledger_entry: {
             debit: {
               code: debitAcc.code,
@@ -665,7 +742,7 @@
           total_transactions: txs.length,
           total_inflows: totalInflows,
           total_outflows: totalOutflows,
-          notes: "Generated by AcePi Lite rule engine in the browser. For production, connect to the full AcePi LLM engine."
+          notes: "Generated by AcePi Lite multi-country rule engine in the browser. For production, connect to the full AcePi LLM engine."
         },
         entries
       };
@@ -675,6 +752,7 @@
       const raw = payloadInput.value.trim();
       if (!raw) {
         statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV.";
+        outputEl.textContent = "";
         return;
       }
       let parsed;
