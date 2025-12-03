@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Offline Demo)</title>
+  <title>AcePi Lite – Hybrid Accounting & Tax Engine (CSV-Enabled)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -71,6 +71,10 @@
       min-height: 260px;
       resize: vertical;
     }
+    input[type="file"] {
+      font-size: 12px;
+      color: #e5e7eb;
+    }
     button {
       border-radius: 999px;
       border: none;
@@ -122,13 +126,20 @@
     .pill-row {
       margin-bottom: 12px;
     }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
   </style>
 </head>
 <body>
   <header>
     <div>
       <h1>AcePi Lite – Hybrid Accounting & Tax Engine</h1>
-      <span>Offline demo • Web2 + Web3 + Nigerian Tax Intelligence</span>
+      <span>Web2 + Web3 + Nigerian Tax Intelligence • CSV-enabled demo</span>
     </div>
     <div style="text-align:right;font-size:11px;opacity:0.8;">
       Ace Consulting & Analytics (ACA)<br />
@@ -138,23 +149,35 @@
 
   <main>
     <section class="card">
-      <h2>1. Paste or Load AcePi JSON Payload</h2>
+      <h2>1. Input Data – JSON or CSV</h2>
       <p style="font-size:12px;opacity:0.9;">
-        Paste your full JSON payload here, or click “Load Demo Payload” to use the Master Demo Dataset.
+        You can either paste a full AcePi JSON payload, load the Master Demo Dataset, or upload a CSV file using the AcePi standard format.
       </p>
 
       <div class="pill-row">
-        <span class="tag">Input: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
-        <span class="tag">Engine: Rule-based AcePi Lite</span>
-        <span class="tag">Output: classification + ledger + tax + summary</span>
+        <span class="tag">JSON: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
+        <span class="tag">CSV: date, description, amount, direction, currency, counterparty_type, payment_channel</span>
+        <span class="tag">Engine: Rule-based AcePi Lite (offline)</span>
+      </div>
+
+      <div class="row">
+        <div>
+          <label for="csvFile">Upload CSV (AcePi template format)</label>
+          <input id="csvFile" type="file" accept=".csv" />
+        </div>
+        <button type="button" class="btn-secondary" id="loadCsvBtn">
+          📂 Load CSV → Build Payload
+        </button>
       </div>
 
       <label for="payloadInput">AcePi JSON Payload</label>
-      <textarea id="payloadInput" placeholder='Paste your JSON here, e.g. { "business_profile": {...}, "tax_profile": {...}, "chart_of_accounts": [...], "transactions": [...] }'></textarea>
+      <textarea id="payloadInput" placeholder='Paste your JSON here, or build from CSV using the button above.'></textarea>
 
       <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
         <button id="runBtn">▶ Run AcePi Lite</button>
-        <button type="button" class="btn-secondary" id="loadDemoBtn">Load Demo Payload (Master Dataset)</button>
+        <button type="button" class="btn-secondary" id="loadDemoBtn">
+          Load Demo Payload (Master Dataset)
+        </button>
       </div>
 
       <div class="status" id="status"></div>
@@ -163,14 +186,14 @@
     <section class="card">
       <h2>2. AcePi Lite Output</h2>
       <p style="font-size:12px;opacity:0.9;">
-        The result below is generated locally in your browser – no external API. This simulates how AcePi will behave once wired to Dify/LLM.
+        The result below is generated locally in your browser – no external API. This simulates how AcePi will behave once wired to the full AI engine.
       </p>
       <pre id="output">(no response yet)</pre>
     </section>
   </main>
 
   <script>
-    // Master Demo payload (same as we designed together)
+    // Master Demo payload
     const masterDemoPayload = {
       "business_profile": {
         "business_name": "Ace Hybrid Retail & Web3 Hub",
@@ -360,11 +383,77 @@
     const statusEl = document.getElementById("status");
     const runBtn = document.getElementById("runBtn");
     const loadDemoBtn = document.getElementById("loadDemoBtn");
+    const csvFileInput = document.getElementById("csvFile");
+    const loadCsvBtn = document.getElementById("loadCsvBtn");
 
     loadDemoBtn.addEventListener("click", () => {
       payloadInput.value = JSON.stringify(masterDemoPayload, null, 2);
       statusEl.textContent = "Loaded Master Demo Dataset. Click 'Run AcePi Lite' to process.";
       outputEl.textContent = "(no response yet)";
+    });
+
+    function parseCsv(text) {
+      const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(",").map(h => h.trim());
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(","); // simple parser; avoid commas inside fields for now
+        if (cols.length === 1 && cols[0].trim() === "") continue;
+        const row = {};
+        headers.forEach((h, idx) => {
+          row[h] = (cols[idx] || "").trim();
+        });
+        rows.push(row);
+      }
+      return rows;
+    }
+
+    loadCsvBtn.addEventListener("click", () => {
+      const file = csvFileInput.files && csvFileInput.files[0];
+      if (!file) {
+        statusEl.textContent = "Please choose a CSV file first.";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const text = reader.result;
+          const rows = parseCsv(text);
+          if (!rows.length) {
+            statusEl.textContent = "CSV appears empty or invalid. Make sure it has a header row.";
+            return;
+          }
+          // Build transactions[] from CSV rows
+          const transactions = rows.map((row, idx) => ({
+            id: row.id || `CSV-${idx + 1}`,
+            date: row.date || row.Date || "",
+            amount: Number(row.amount || row.Amount || 0),
+            currency: row.currency || row.Currency || "NGN",
+            description: row.description || row.Description || "",
+            direction: (row.direction || row.Direction || "").toLowerCase(),
+            counterparty_type: row.counterparty_type || row.counterparty || null,
+            payment_channel: row.payment_channel || row.channel || null
+          }));
+
+          const payloadFromCsv = {
+            business_profile: masterDemoPayload.business_profile,
+            tax_profile: masterDemoPayload.tax_profile,
+            chart_of_accounts: masterDemoPayload.chart_of_accounts,
+            transactions
+          };
+
+          payloadInput.value = JSON.stringify(payloadFromCsv, null, 2);
+          statusEl.textContent = `CSV loaded: ${transactions.length} transactions mapped. Now click 'Run AcePi Lite'.`;
+          outputEl.textContent = "(no response yet)";
+        } catch (e) {
+          statusEl.textContent = "Error parsing CSV: " + e.message;
+        }
+      };
+      reader.onerror = () => {
+        statusEl.textContent = "Failed to read CSV file.";
+      };
+      reader.readAsText(file);
     });
 
     function findAccount(coa, codeFallback) {
@@ -432,10 +521,8 @@
         if (tx.direction === "in") totalInflows += amount;
         if (tx.direction === "out") totalOutflows += amount;
 
-        // Determine debit/credit accounts
         let debitAcc, creditAcc;
         if (tx.direction === "in") {
-          // Inflows
           if (tx.chain === "base" && tx.currency === "USDC") {
             debitAcc = findAccount(coa, "1010");
           } else if (tx.chain === "pi") {
@@ -456,7 +543,6 @@
             creditAcc = findAccount(coa, "4000");
           }
         } else if (tx.direction === "out") {
-          // Outflows
           if (nature === "goods_purchase") {
             debitAcc = findAccount(coa, "5000");
           } else if (nature === "service_expense" || nature === "onchain_expense") {
@@ -481,7 +567,6 @@
           creditAcc = findAccount(coa, "9999");
         }
 
-        // VAT / WHT
         let vatApplicableTx = false;
         let vatAmount = 0;
         let vatType = "none";
@@ -492,15 +577,15 @@
 
         if (category === "income" && vatApplicable) {
           vatApplicableTx = true;
-          const base = amount / (1 + vatRate);
-          vatAmount = +(amount - base).toFixed(2);
+          const baseVal = amount / (1 + vatRate);
+          vatAmount = +(amount - baseVal).toFixed(2);
           vatType = "output";
           taxCategory = "taxable income";
           notes = "Income transaction; treated as taxable revenue with output VAT.";
         } else if (category === "expense" && vatApplicable && nature !== "gas_fee_expense") {
           vatApplicableTx = true;
-          const base = amount / (1 + vatRate);
-          vatAmount = +(amount - base).toFixed(2);
+          const baseVal = amount / (1 + vatRate);
+          vatAmount = +(amount - baseVal).toFixed(2);
           vatType = "input";
           taxCategory = "allowable expense";
           notes = "Business expense; treated as allowable with input VAT.";
@@ -589,7 +674,7 @@
     runBtn.addEventListener("click", () => {
       const raw = payloadInput.value.trim();
       if (!raw) {
-        statusEl.textContent = "Please paste a JSON payload or click 'Load Demo Payload'.";
+        statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV.";
         return;
       }
       let parsed;
