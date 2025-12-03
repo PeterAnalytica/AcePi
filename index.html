@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Multi-Country CSV + Web3 JSON)</title>
+  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Multi-Country + Web3 + FX)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -139,7 +139,7 @@
   <header>
     <div>
       <h1>AcePi Lite – Hybrid Accounting & Tax Engine</h1>
-      <span>Multi-country • Web2 + Web3 • VAT & WHT aware</span>
+      <span>Multi-country • Web2 + Web3 • VAT, WHT & FX-aware</span>
     </div>
     <div style="text-align:right;font-size:11px;opacity:0.8;">
       Ace Consulting & Analytics (ACA)<br />
@@ -152,19 +152,19 @@
       <h2>1. Input Data – JSON, CSV, or Web3 JSON</h2>
       <p style="font-size:12px;opacity:0.9;">
         Paste a full AcePi JSON payload, load the Master Demo Dataset, upload a CSV file, or paste Web3-style JSON
-        (Base / Pi / Solana exports) and transform it into AcePi transactions.
+        (Base / Pi / Solana exports) and transform it into AcePi transactions. FX fields are supported.
       </p>
 
       <div class="pill-row">
         <span class="tag">JSON: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
-        <span class="tag">CSV: NG + UK + EU + US + on-chain</span>
-        <span class="tag">Web3 JSON: Base / Pi / Solana-style</span>
+        <span class="tag">CSV: NG + UK + EU + US + on-chain + FX</span>
+        <span class="tag">Web3 JSON: Base / Pi / Solana</span>
         <span class="tag">Engine: AcePi Lite (offline rule-based)</span>
       </div>
 
       <div class="row">
         <div>
-          <label for="csvFile">Upload CSV (AcePi advanced template)</label>
+          <label for="csvFile">Upload CSV (AcePi advanced + FX template)</label>
           <input id="csvFile" type="file" accept=".csv" />
         </div>
         <button type="button" class="btn-secondary" id="loadCsvBtn">
@@ -229,7 +229,7 @@
 
       <pre id="output">(no response yet)</pre>
 
-      <h3 style="margin-top:16px;font-size:14px;">3. Summary View (by tax country)</h3>
+      <h3 style="margin-top:16px;font-size:14px;">3. Summary View (by tax country + FX overview)</h3>
       <pre id="summary">(no summary yet)</pre>
 
       <h3 style="margin-top:16px;font-size:14px;">4. Analytics View (categories, chains, channels)</h3>
@@ -513,7 +513,11 @@
             vat_applicable_override: toBool(row.vat_applicable),
             vat_rate_override: row.vat_rate ? Number(row.vat_rate) : null,
             wht_applicable_override: toBool(row.wht_applicable),
-            wht_rate_override: row.wht_rate ? Number(row.wht_rate) : null
+            wht_rate_override: row.wht_rate ? Number(row.wht_rate) : null,
+            fx_currency: row.fx_currency || row.FXCurrency || null,
+            fx_amount: row.fx_amount ? Number(row.fx_amount) : (row.FXAmount ? Number(row.FXAmount) : null),
+            fx_rate_to_base: row.fx_rate_to_base ? Number(row.fx_rate_to_base) : (row.FXRateToBase ? Number(row.FXRateToBase) : null),
+            fx_fee: row.fx_fee ? Number(row.fx_fee) : (row.FXFee ? Number(row.FXFee) : null)
           }));
 
           const payloadFromCsv = {
@@ -540,7 +544,6 @@
     });
 
     function mapWeb3JsonToTransactions(raw) {
-      // raw can be an array or an object with .transactions
       let txs = [];
       const top = raw || {};
       if (Array.isArray(raw)) {
@@ -575,7 +578,11 @@
         vat_applicable_override: toBool(t.vat_applicable),
         vat_rate_override: typeof t.vat_rate === "number" ? t.vat_rate : null,
         wht_applicable_override: toBool(t.wht_applicable),
-        wht_rate_override: typeof t.wht_rate === "number" ? t.wht_rate : null
+        wht_rate_override: typeof t.wht_rate === "number" ? t.wht_rate : null,
+        fx_currency: t.fx_currency || null,
+        fx_amount: t.fx_amount != null ? Number(t.fx_amount) : null,
+        fx_rate_to_base: t.fx_rate_to_base != null ? Number(t.fx_rate_to_base) : null,
+        fx_fee: t.fx_fee != null ? Number(t.fx_fee) : null
       }));
     }
 
@@ -673,6 +680,18 @@
         const taxCountryCode = (tx.tax_country || tp.country || bp.country || "NG").toString().toUpperCase();
         const countryDefaults = defaultTaxProfiles[taxCountryCode] || defaultTaxProfiles["NG"];
 
+        // FX metadata
+        const fxCurrency = tx.fx_currency || null;
+        const fxAmount = tx.fx_amount != null ? Number(tx.fx_amount) : null;
+        const fxRate = tx.fx_rate_to_base != null ? Number(tx.fx_rate_to_base) : null;
+        const fxFee = tx.fx_fee != null ? Number(tx.fx_fee) : null;
+        let baseFromFx = null;
+        let fxDiff = null;
+        if (fxCurrency && fxAmount != null && fxRate != null) {
+          baseFromFx = +(fxAmount * fxRate).toFixed(2);
+          fxDiff = +(amount - baseFromFx).toFixed(2);
+        }
+
         let debitAcc, creditAcc;
         if (tx.direction === "in") {
           if (tx.chain === "base" && tx.currency === "USDC") {
@@ -739,7 +758,7 @@
           : null;
 
         const effectiveVatApplicable =
-          vatOverrideFlag !== null
+          vatOverrideFlag !== null && vatOverrideFlag !== undefined
             ? vatOverrideFlag
             : (countryDefaults.vat_applicable && globalVatApplicable);
 
@@ -785,14 +804,14 @@
         if (whtEnabledEffective && tx.direction === "out") {
           if (nature === "service_expense" || nature === "onchain_expense") {
             const rate = effectiveWhtServiceRate || 0;
-            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === true)) {
+            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === undefined || whtOverrideFlag === true)) {
               whtApplicableTx = true;
               whtAmount = +(amount * rate).toFixed(2);
               notes += (notes ? " " : "") + `Withholding tax on services applied at ${(rate * 100).toFixed(1)}%.`;
             }
           } else if (nature === "rent_expense") {
             const rate = effectiveWhtRentRate || 0;
-            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === true)) {
+            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === undefined || whtOverrideFlag === true)) {
               whtApplicableTx = true;
               whtAmount = +(amount * rate).toFixed(2);
               notes += (notes ? " " : "") + `Withholding tax on rent applied at ${(rate * 100).toFixed(1)}%.`;
@@ -842,6 +861,15 @@
               amount: amount
             }
           },
+          fx: {
+            fx_currency: fxCurrency,
+            fx_amount: fxAmount,
+            fx_rate_to_base: fxRate,
+            base_amount_from_fx: baseFromFx,
+            recorded_base_amount: amount,
+            fx_fee: fxFee,
+            fx_diff: fxDiff
+          },
           tax_analysis: {
             vat_applicable: vatApplicableTx,
             vat_amount: vatAmount,
@@ -864,7 +892,7 @@
           total_transactions: txs.length,
           total_inflows: totalInflows,
           total_outflows: totalOutflows,
-          notes: "Generated by AcePi Lite multi-country rule engine in the browser. For production, connect to the full AcePi LLM engine."
+          notes: "Generated by AcePi Lite multi-country + FX-aware rule engine in the browser. For production, connect to the full AcePi LLM engine."
         },
         entries
       };
@@ -881,6 +909,7 @@
 
       const entries = result.entries || [];
       const perCountry = {};
+      const perFx = {};
 
       entries.forEach(e => {
         const country = e.tax_country || "Unknown";
@@ -897,6 +926,20 @@
           bucket.vat += Number(e.tax_analysis.vat_amount || 0);
           bucket.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
         }
+
+        const fx = e.fx || null;
+        if (fx && fx.fx_currency) {
+          const c = fx.fx_currency.toUpperCase();
+          if (!perFx[c]) {
+            perFx[c] = { fx_amount: 0, base_from_fx: 0, recorded_base: 0, fx_fee: 0, count: 0 };
+          }
+          const fb = perFx[c];
+          fb.count++;
+          if (fx.fx_amount != null) fb.fx_amount += Number(fx.fx_amount) || 0;
+          if (fx.base_amount_from_fx != null) fb.base_from_fx += Number(fx.base_amount_from_fx) || 0;
+          fb.recorded_base += amt;
+          if (fx.fx_fee != null) fb.fx_fee += Number(fx.fx_fee) || 0;
+        }
       });
 
       lines.push("Per tax country:");
@@ -911,8 +954,23 @@
           );
         });
       }
+
       lines.push("");
-      lines.push("Note: amounts are numeric totals as provided; no FX conversion is applied between currencies.");
+      lines.push("FX overview (by original currency):");
+      const fxKeys = Object.keys(perFx);
+      if (!fxKeys.length) {
+        lines.push("- (no FX data found)");
+      } else {
+        fxKeys.sort().forEach(cur => {
+          const b = perFx[cur];
+          lines.push(
+            `- ${cur}: tx=${b.count}, fx_amount=${b.fx_amount.toFixed(2)}, base_from_fx=${b.base_from_fx.toFixed(2)}, recorded_base=${b.recorded_base.toFixed(2)}, fx_fee_total=${b.fx_fee.toFixed(2)}`
+          );
+        });
+      }
+
+      lines.push("");
+      lines.push("Note: FX fields are informational in this Lite engine. Base amounts are taken from 'amount'; FX blocks show conversions and differences.");
       return lines.join("\n");
     }
 
@@ -1023,7 +1081,7 @@
       outputEl.textContent = JSON.stringify(result, null, 2);
       summaryEl.textContent = buildSummary(result);
       analyticsEl.textContent = buildAnalytics(result);
-      statusEl.textContent = "Done. AcePi Lite output, summary, and analytics generated.";
+      statusEl.textContent = "Done. AcePi Lite output, summary, analytics, and FX overview generated.";
     });
 
     downloadBtn.addEventListener("click", () => {
