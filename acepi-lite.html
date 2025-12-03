@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Offline Demo)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #020617;
+      color: #e5e7eb;
+    }
+    header {
+      padding: 16px 24px;
+      background: #020617;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    header span {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      grid-gap: 16px;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+    .card {
+      background: #020617;
+      border-radius: 14px;
+      border: 1px solid #1f2937;
+      padding: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 16px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      opacity: 0.9;
+    }
+    textarea {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      box-sizing: border-box;
+      min-height: 260px;
+      resize: vertical;
+    }
+    button {
+      border-radius: 999px;
+      border: none;
+      padding: 10px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #22c55e;
+      color: #022c22;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: #0f172a;
+      color: #e5e7eb;
+      border: 1px solid #374151;
+    }
+    .tag {
+      display: inline-flex;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid #4b5563;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .status {
+      font-size: 12px;
+      margin-top: 8px;
+      min-height: 18px;
+      opacity: 0.9;
+    }
+    pre {
+      background: #020617;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      padding: 10px;
+      font-size: 12px;
+      max-height: 480px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .pill-row {
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>AcePi Lite – Hybrid Accounting & Tax Engine</h1>
+      <span>Offline demo • Web2 + Web3 + Nigerian Tax Intelligence</span>
+    </div>
+    <div style="text-align:right;font-size:11px;opacity:0.8;">
+      Ace Consulting & Analytics (ACA)<br />
+      Browser-only prototype – no backend required
+    </div>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>1. Paste or Load AcePi JSON Payload</h2>
+      <p style="font-size:12px;opacity:0.9;">
+        Paste your full JSON payload here, or click “Load Demo Payload” to use the Master Demo Dataset.
+      </p>
+
+      <div class="pill-row">
+        <span class="tag">Input: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
+        <span class="tag">Engine: Rule-based AcePi Lite</span>
+        <span class="tag">Output: classification + ledger + tax + summary</span>
+      </div>
+
+      <label for="payloadInput">AcePi JSON Payload</label>
+      <textarea id="payloadInput" placeholder='Paste your JSON here, e.g. { "business_profile": {...}, "tax_profile": {...}, "chart_of_accounts": [...], "transactions": [...] }'></textarea>
+
+      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="runBtn">▶ Run AcePi Lite</button>
+        <button type="button" class="btn-secondary" id="loadDemoBtn">Load Demo Payload (Master Dataset)</button>
+      </div>
+
+      <div class="status" id="status"></div>
+    </section>
+
+    <section class="card">
+      <h2>2. AcePi Lite Output</h2>
+      <p style="font-size:12px;opacity:0.9;">
+        The result below is generated locally in your browser – no external API. This simulates how AcePi will behave once wired to Dify/LLM.
+      </p>
+      <pre id="output">(no response yet)</pre>
+    </section>
+  </main>
+
+  <script>
+    // Master Demo payload (same as we designed together)
+    const masterDemoPayload = {
+      "business_profile": {
+        "business_name": "Ace Hybrid Retail & Web3 Hub",
+        "industry": "Retail & Digital Services",
+        "country": "Nigeria",
+        "base_currency": "NGN"
+      },
+      "tax_profile": {
+        "country": "NG",
+        "vat_applicable": true,
+        "vat_registered": true,
+        "vat_rate": 0.075,
+        "treat_sales_as_vat_inclusive": true,
+        "withholding_tax_enabled": true,
+        "default_wht_service_rate": 0.10,
+        "default_wht_contract_rate": 0.05,
+        "default_wht_rent_rate": 0.10,
+        "input_vat_claimable": true
+      },
+      "chart_of_accounts": [
+        { "code": "1000", "name": "Cash and Bank", "type": "asset" },
+        { "code": "1010", "name": "On-chain Wallet - Base (USDC)", "type": "asset" },
+        { "code": "1011", "name": "On-chain Wallet - Pi", "type": "asset" },
+        { "code": "2000", "name": "Accounts Payable", "type": "liability" },
+        { "code": "3000", "name": "Owner's Equity", "type": "equity" },
+        { "code": "4000", "name": "Sales Revenue (Local)", "type": "income" },
+        { "code": "4010", "name": "Sales Revenue (On-chain)", "type": "income" },
+        { "code": "4011", "name": "Sales Revenue (Pi Network)", "type": "income" },
+        { "code": "5000", "name": "Cost of Goods Sold", "type": "expense" },
+        { "code": "6001", "name": "Office & Shop Expenses", "type": "expense" },
+        { "code": "6002", "name": "Professional Fees Expense", "type": "expense" },
+        { "code": "6003", "name": "Rent Expense", "type": "expense" },
+        { "code": "6005", "name": "Network Fees (Gas)", "type": "expense" },
+        { "code": "9999", "name": "Unclassified Transaction", "type": "expense" }
+      ],
+      "transactions": [
+        {
+          "id": "DEM-001",
+          "date": "2025-11-20",
+          "amount": 350000,
+          "currency": "NGN",
+          "description": "In-store POS sales for the day",
+          "direction": "in",
+          "counterparty_type": "customer",
+          "payment_channel": "POS"
+        },
+        {
+          "id": "DEM-002",
+          "date": "2025-11-20",
+          "amount": 145000,
+          "currency": "NGN",
+          "description": "Inventory purchase from local supplier (wholesale goods)",
+          "direction": "out",
+          "counterparty_type": "supplier",
+          "payment_channel": "bank_transfer"
+        },
+        {
+          "id": "DEM-003",
+          "date": "2025-11-21",
+          "amount": 25000,
+          "currency": "NGN",
+          "description": "Office rent for November (shop space)",
+          "direction": "out",
+          "counterparty_type": "landlord",
+          "payment_channel": "bank_transfer"
+        },
+        {
+          "id": "DEM-004",
+          "date": "2025-11-21",
+          "amount": 42000,
+          "currency": "NGN",
+          "description": "Payment to freelance graphic designer for marketing flyers",
+          "direction": "out",
+          "counterparty_type": "supplier",
+          "payment_channel": "bank_transfer"
+        },
+        {
+          "id": "DEM-005",
+          "date": "2025-11-22",
+          "amount": 180000,
+          "currency": "NGN",
+          "description": "Online sales paid via bank transfer (Jumia-like order)",
+          "direction": "in",
+          "counterparty_type": "customer",
+          "payment_channel": "bank_transfer"
+        },
+        {
+          "id": "DEM-006",
+          "date": "2025-11-23",
+          "amount": 300,
+          "currency": "USDC",
+          "description": "Online order paid in USDC on Base",
+          "direction": "in",
+          "counterparty_type": "customer",
+          "payment_channel": "onchain",
+          "chain": "base",
+          "tx_hash": "0xbase300usdcin",
+          "wallet_address": "0xHybridStoreWallet",
+          "counterparty_wallet": "0xCustomerWallet1",
+          "contract_address": null,
+          "token_symbol": "USDC",
+          "token_decimal": 6,
+          "gas_fee": 0.00025,
+          "gas_currency": "ETH"
+        },
+        {
+          "id": "DEM-007",
+          "date": "2025-11-23",
+          "amount": 120,
+          "currency": "USDC",
+          "description": "Payment to web developer in USDC for website update",
+          "direction": "out",
+          "counterparty_type": "supplier",
+          "payment_channel": "onchain",
+          "chain": "base",
+          "tx_hash": "0xbase120usdcout",
+          "wallet_address": "0xHybridStoreWallet",
+          "counterparty_wallet": "0xDeveloperWallet",
+          "contract_address": null,
+          "token_symbol": "USDC",
+          "token_decimal": 6,
+          "gas_fee": 0.00030,
+          "gas_currency": "ETH"
+        },
+        {
+          "id": "DEM-008",
+          "date": "2025-11-23",
+          "amount": 0.00030,
+          "currency": "ETH",
+          "description": "Gas fee for USDC payment to web developer on Base",
+          "direction": "out",
+          "counterparty_type": "network",
+          "payment_channel": "onchain",
+          "chain": "base",
+          "tx_hash": "0xbase120usdcout",
+          "wallet_address": "0xHybridStoreWallet",
+          "counterparty_wallet": null,
+          "contract_address": null,
+          "token_symbol": "ETH",
+          "token_decimal": 18,
+          "gas_fee": 0.00030,
+          "gas_currency": "ETH"
+        },
+        {
+          "id": "DEM-009",
+          "date": "2025-11-24",
+          "amount": 60,
+          "currency": "PI",
+          "description": "Sale of goods paid with Pi Network at physical store",
+          "direction": "in",
+          "counterparty_type": "customer",
+          "payment_channel": "onchain",
+          "chain": "pi",
+          "tx_hash": "0xpi60sale",
+          "wallet_address": "PiBusinessWalletAddress",
+          "counterparty_wallet": "PiCustomerWallet1",
+          "contract_address": null,
+          "token_symbol": "PI",
+          "token_decimal": 8,
+          "gas_fee": 0,
+          "gas_currency": "PI"
+        },
+        {
+          "id": "DEM-010",
+          "date": "2025-11-24",
+          "amount": 15,
+          "currency": "PI",
+          "description": "Small business service payment to local technician in Pi",
+          "direction": "out",
+          "counterparty_type": "supplier",
+          "payment_channel": "onchain",
+          "chain": "pi",
+          "tx_hash": "0xpi15service",
+          "wallet_address": "PiBusinessWalletAddress",
+          "counterparty_wallet": "PiTechnicianWallet",
+          "contract_address": null,
+          "token_symbol": "PI",
+          "token_decimal": 8,
+          "gas_fee": 0,
+          "gas_currency": "PI"
+        }
+      ]
+    };
+
+    const payloadInput = document.getElementById("payloadInput");
+    const outputEl = document.getElementById("output");
+    const statusEl = document.getElementById("status");
+    const runBtn = document.getElementById("runBtn");
+    const loadDemoBtn = document.getElementById("loadDemoBtn");
+
+    loadDemoBtn.addEventListener("click", () => {
+      payloadInput.value = JSON.stringify(masterDemoPayload, null, 2);
+      statusEl.textContent = "Loaded Master Demo Dataset. Click 'Run AcePi Lite' to process.";
+      outputEl.textContent = "(no response yet)";
+    });
+
+    function findAccount(coa, codeFallback) {
+      const found = coa.find(a => a.code === codeFallback);
+      if (found) return found;
+      const unclassified = coa.find(a => a.code === "9999") || { code: "9999", name: "Unclassified Transaction" };
+      return unclassified;
+    }
+
+    function classifyNature(tx) {
+      const desc = (tx.description || "").toLowerCase();
+      const dir = tx.direction;
+      if (tx.chain) {
+        if (dir === "in") {
+          return "onchain_income";
+        } else if (dir === "out" && (tx.counterparty_type === "network" || desc.includes("gas fee"))) {
+          return "gas_fee_expense";
+        } else if (dir === "out") {
+          return "onchain_expense";
+        }
+      }
+      if (dir === "in") {
+        return "income";
+      }
+      if (dir === "out") {
+        if (desc.includes("inventory") || desc.includes("stock") || desc.includes("wholesale") || desc.includes("goods") || desc.includes("purchase")) {
+          return "goods_purchase";
+        }
+        if (desc.includes("rent") || tx.counterparty_type === "landlord") {
+          return "rent_expense";
+        }
+        if (desc.includes("designer") || desc.includes("developer") || desc.includes("service") || desc.includes("freelance") || desc.includes("consult")) {
+          return "service_expense";
+        }
+        if (tx.counterparty_type === "network" || desc.includes("gas fee")) {
+          return "gas_fee_expense";
+        }
+        return "operating_expense";
+      }
+      return "unclassified";
+    }
+
+    function acepiLiteEngine(payload) {
+      const bp = payload.business_profile || {};
+      const tp = payload.tax_profile || {};
+      const coa = payload.chart_of_accounts || [];
+      const txs = payload.transactions || [];
+
+      const vatApplicable = !!tp.vat_applicable;
+      const vatRate = typeof tp.vat_rate === "number" ? tp.vat_rate : 0;
+      const whtEnabled = !!tp.withholding_tax_enabled;
+      const whtServiceRate = typeof tp.default_wht_service_rate === "number" ? tp.default_wht_service_rate : 0;
+      const whtRentRate = typeof tp.default_wht_rent_rate === "number" ? tp.default_wht_rent_rate : 0.1;
+
+      let totalInflows = 0;
+      let totalOutflows = 0;
+
+      const entries = txs.map(tx => {
+        const nature = classifyNature(tx);
+        let category = "other";
+        if (nature === "income" || nature === "onchain_income") category = "income";
+        else if (["goods_purchase","service_expense","rent_expense","operating_expense","gas_fee_expense","onchain_expense"].includes(nature)) category = "expense";
+
+        const amount = Number(tx.amount) || 0;
+        if (tx.direction === "in") totalInflows += amount;
+        if (tx.direction === "out") totalOutflows += amount;
+
+        // Determine debit/credit accounts
+        let debitAcc, creditAcc;
+        if (tx.direction === "in") {
+          // Inflows
+          if (tx.chain === "base" && tx.currency === "USDC") {
+            debitAcc = findAccount(coa, "1010");
+          } else if (tx.chain === "pi") {
+            debitAcc = findAccount(coa, "1011");
+          } else {
+            debitAcc = findAccount(coa, "1000");
+          }
+
+          if (nature === "onchain_income") {
+            if (tx.chain === "base") {
+              creditAcc = findAccount(coa, "4010");
+            } else if (tx.chain === "pi") {
+              creditAcc = findAccount(coa, "4011");
+            } else {
+              creditAcc = findAccount(coa, "4000");
+            }
+          } else {
+            creditAcc = findAccount(coa, "4000");
+          }
+        } else if (tx.direction === "out") {
+          // Outflows
+          if (nature === "goods_purchase") {
+            debitAcc = findAccount(coa, "5000");
+          } else if (nature === "service_expense" || nature === "onchain_expense") {
+            debitAcc = findAccount(coa, "6002");
+          } else if (nature === "rent_expense") {
+            debitAcc = findAccount(coa, "6003");
+          } else if (nature === "gas_fee_expense") {
+            debitAcc = findAccount(coa, "6005");
+          } else {
+            debitAcc = findAccount(coa, "6001");
+          }
+
+          if (tx.chain === "base" && tx.currency === "USDC") {
+            creditAcc = findAccount(coa, "1010");
+          } else if (tx.chain === "pi") {
+            creditAcc = findAccount(coa, "1011");
+          } else {
+            creditAcc = findAccount(coa, "1000");
+          }
+        } else {
+          debitAcc = findAccount(coa, "9999");
+          creditAcc = findAccount(coa, "9999");
+        }
+
+        // VAT / WHT
+        let vatApplicableTx = false;
+        let vatAmount = 0;
+        let vatType = "none";
+        let whtApplicableTx = false;
+        let whtAmount = 0;
+        let taxCategory = "undetermined";
+        let notes = "";
+
+        if (category === "income" && vatApplicable) {
+          vatApplicableTx = true;
+          const base = amount / (1 + vatRate);
+          vatAmount = +(amount - base).toFixed(2);
+          vatType = "output";
+          taxCategory = "taxable income";
+          notes = "Income transaction; treated as taxable revenue with output VAT.";
+        } else if (category === "expense" && vatApplicable && nature !== "gas_fee_expense") {
+          vatApplicableTx = true;
+          const base = amount / (1 + vatRate);
+          vatAmount = +(amount - base).toFixed(2);
+          vatType = "input";
+          taxCategory = "allowable expense";
+          notes = "Business expense; treated as allowable with input VAT.";
+        } else if (category === "expense" && nature === "gas_fee_expense") {
+          vatApplicableTx = false;
+          vatAmount = 0;
+          vatType = "none";
+          taxCategory = "allowable expense";
+          notes = "Gas/network fee; treated as allowable expense without VAT.";
+        }
+
+        if (whtEnabled && tx.direction === "out") {
+          if (nature === "service_expense" || nature === "onchain_expense") {
+            whtApplicableTx = true;
+            whtAmount = +(amount * whtServiceRate).toFixed(2);
+            notes += (notes ? " " : "") + "Withholding tax on services applied.";
+          } else if (nature === "rent_expense") {
+            whtApplicableTx = true;
+            whtAmount = +(amount * whtRentRate).toFixed(2);
+            notes += (notes ? " " : "") + "Withholding tax on rent applied.";
+          }
+        }
+
+        if (!taxCategory || taxCategory === "undetermined") {
+          if (category === "income") taxCategory = "taxable income";
+          else if (category === "expense") taxCategory = "allowable expense";
+        }
+
+        const confidence =
+          nature === "unclassified" ? 0.6 :
+          nature === "operating_expense" ? 0.8 : 0.95;
+
+        return {
+          transaction_id: tx.id || null,
+          raw_description: tx.description || "",
+          chain: tx.chain || null,
+          tx_hash: tx.tx_hash || null,
+          wallet_address: tx.wallet_address || null,
+          counterparty_wallet: tx.counterparty_wallet || null,
+          classification: {
+            category: nature,
+            matched_account_code: creditAcc.code || "9999",
+            matched_account_name: creditAcc.name || "Unclassified Transaction",
+            confidence_score: confidence
+          },
+          ledger_entry: {
+            debit: {
+              code: debitAcc.code,
+              name: debitAcc.name,
+              amount: amount
+            },
+            credit: {
+              code: creditAcc.code,
+              name: creditAcc.name,
+              amount: amount
+            }
+          },
+          tax_analysis: {
+            vat_applicable: vatApplicableTx,
+            vat_amount: vatAmount,
+            vat_type: vatType,
+            withholding_tax_applicable: whtApplicableTx,
+            withholding_tax_amount: whtAmount,
+            tax_category: taxCategory,
+            tax_notes: notes
+          }
+        };
+      });
+
+      return {
+        business_profile: {
+          industry: bp.industry || null,
+          country: bp.country || null,
+          base_currency: bp.base_currency || null
+        },
+        summary: {
+          total_transactions: txs.length,
+          total_inflows: totalInflows,
+          total_outflows: totalOutflows,
+          notes: "Generated by AcePi Lite rule engine in the browser. For production, connect to the full AcePi LLM engine."
+        },
+        entries
+      };
+    }
+
+    runBtn.addEventListener("click", () => {
+      const raw = payloadInput.value.trim();
+      if (!raw) {
+        statusEl.textContent = "Please paste a JSON payload or click 'Load Demo Payload'.";
+        return;
+      }
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (e) {
+        statusEl.textContent = "Payload is not valid JSON. Please fix and try again.";
+        outputEl.textContent = "";
+        return;
+      }
+      statusEl.textContent = "Running AcePi Lite engine locally...";
+      const result = acepiLiteEngine(parsed);
+      outputEl.textContent = JSON.stringify(result, null, 2);
+      statusEl.textContent = "Done. AcePi Lite output generated.";
+    });
+  </script>
+</body>
+</html>
