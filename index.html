@@ -190,7 +190,17 @@
         Output is generated locally in your browser – no external API. For production,
         connect this shell to the full AcePi LLM engine.
       </p>
+
+      <div style="margin-bottom:8px;">
+        <button type="button" class="btn-secondary" id="downloadBtn">
+          ⬇ Download JSON Output
+        </button>
+      </div>
+
       <pre id="output">(no response yet)</pre>
+
+      <h3 style="margin-top:16px;font-size:14px;">3. Summary View (by tax country)</h3>
+      <pre id="summary">(no summary yet)</pre>
     </section>
   </main>
 
@@ -203,7 +213,7 @@
       US: { vat_rate: 0.00, vat_applicable: false, wht_service: 0.00, wht_rent: 0.00 }
     };
 
-    // Master Demo payload (still NG-focused, but engine now supports multi-country overrides)
+    // Master Demo payload (NG-focused, but engine now supports multi-country overrides)
     const masterDemoPayload = {
       "business_profile": {
         "business_name": "Ace Hybrid Retail & Web3 Hub",
@@ -390,16 +400,22 @@
 
     const payloadInput = document.getElementById("payloadInput");
     const outputEl = document.getElementById("output");
+    const summaryEl = document.getElementById("summary");
     const statusEl = document.getElementById("status");
     const runBtn = document.getElementById("runBtn");
     const loadDemoBtn = document.getElementById("loadDemoBtn");
     const csvFileInput = document.getElementById("csvFile");
     const loadCsvBtn = document.getElementById("loadCsvBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    let lastResult = null;
 
     loadDemoBtn.addEventListener("click", () => {
       payloadInput.value = JSON.stringify(masterDemoPayload, null, 2);
       statusEl.textContent = "Loaded Master Demo Dataset. Click 'Run AcePi Lite' to process.";
       outputEl.textContent = "(no response yet)";
+      summaryEl.textContent = "(no summary yet)";
+      lastResult = null;
     });
 
     function parseCsv(text) {
@@ -420,7 +436,7 @@
     }
 
     function toBool(val) {
-      if (val === undefined || val === null) return null;
+      if (val === undefined || val === null || val === "") return null;
       const s = String(val).trim().toLowerCase();
       if (["true","1","yes","y"].includes(s)) return true;
       if (["false","0","no","n"].includes(s)) return false;
@@ -473,6 +489,8 @@
           payloadInput.value = JSON.stringify(payloadFromCsv, null, 2);
           statusEl.textContent = `CSV loaded: ${transactions.length} transactions mapped. Now click 'Run AcePi Lite'.`;
           outputEl.textContent = "(no response yet)";
+          summaryEl.textContent = "(no summary yet)";
+          lastResult = null;
         } catch (e) {
           statusEl.textContent = "Error parsing CSV: " + e.message;
         }
@@ -548,11 +566,9 @@
         if (tx.direction === "in") totalInflows += amount;
         if (tx.direction === "out") totalOutflows += amount;
 
-        // Determine tax country defaults
         const taxCountryCode = (tx.tax_country || tp.country || bp.country || "NG").toString().toUpperCase();
         const countryDefaults = defaultTaxProfiles[taxCountryCode] || defaultTaxProfiles["NG"];
 
-        // Determine debit/credit accounts
         let debitAcc, creditAcc;
         if (tx.direction === "in") {
           if (tx.chain === "base" && tx.currency === "USDC") {
@@ -701,6 +717,7 @@
           tx_hash: tx.tx_hash || null,
           wallet_address: tx.wallet_address || null,
           counterparty_wallet: tx.counterparty_wallet || null,
+          direction: tx.direction || null,
           classification: {
             category: nature,
             matched_account_code: creditAcc.code || "9999",
@@ -748,11 +765,59 @@
       };
     }
 
+    function buildSummary(result) {
+      if (!result) return "(no summary yet)";
+      const lines = [];
+      const summary = result.summary || {};
+      lines.push(`Total transactions: ${summary.total_transactions ?? "n/a"}`);
+      lines.push(`Total inflows: ${summary.total_inflows ?? 0}`);
+      lines.push(`Total outflows: ${summary.total_outflows ?? 0}`);
+      lines.push("");
+
+      const entries = result.entries || [];
+      const perCountry = {};
+
+      entries.forEach(e => {
+        const country = e.tax_country || "Unknown";
+        if (!perCountry[country]) {
+          perCountry[country] = { inflows: 0, outflows: 0, vat: 0, wht: 0, count: 0 };
+        }
+        const bucket = perCountry[country];
+        bucket.count++;
+        const amt = Number(e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount ? e.ledger_entry.debit.amount : 0);
+        const dir = e.direction || null;
+        if (dir === "in") bucket.inflows += amt;
+        else if (dir === "out") bucket.outflows += amt;
+        if (e.tax_analysis) {
+          bucket.vat += Number(e.tax_analysis.vat_amount || 0);
+          bucket.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
+        }
+      });
+
+      lines.push("Per tax country:");
+      const countries = Object.keys(perCountry);
+      if (!countries.length) {
+        lines.push("- (no country-level data found)");
+      } else {
+        countries.sort().forEach(ct => {
+          const b = perCountry[ct];
+          lines.push(
+            `- ${ct}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}, VAT=${b.vat.toFixed(2)}, WHT=${b.wht.toFixed(2)}`
+          );
+        });
+      }
+      lines.push("");
+      lines.push("Note: amounts are numeric totals as provided; no FX conversion is applied between currencies.");
+      return lines.join("\n");
+    }
+
     runBtn.addEventListener("click", () => {
       const raw = payloadInput.value.trim();
       if (!raw) {
         statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV.";
         outputEl.textContent = "";
+        summaryEl.textContent = "(no summary yet)";
+        lastResult = null;
         return;
       }
       let parsed;
@@ -761,12 +826,40 @@
       } catch (e) {
         statusEl.textContent = "Payload is not valid JSON. Please fix and try again.";
         outputEl.textContent = "";
+        summaryEl.textContent = "(no summary yet)";
+        lastResult = null;
         return;
       }
       statusEl.textContent = "Running AcePi Lite engine locally...";
       const result = acepiLiteEngine(parsed);
+      lastResult = result;
       outputEl.textContent = JSON.stringify(result, null, 2);
-      statusEl.textContent = "Done. AcePi Lite output generated.";
+      summaryEl.textContent = buildSummary(result);
+      statusEl.textContent = "Done. AcePi Lite output and summary generated.";
+    });
+
+    downloadBtn.addEventListener("click", () => {
+      if (!lastResult) {
+        statusEl.textContent = "No result to download yet. Run AcePi Lite first.";
+        return;
+      }
+      try {
+        const jsonStr = JSON.stringify(lastResult, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const now = new Date();
+        const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "");
+        a.href = url;
+        a.download = `acepi-output-${stamp}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        statusEl.textContent = "Downloaded AcePi JSON output.";
+      } catch (e) {
+        statusEl.textContent = "Could not generate download: " + e.message;
+      }
     });
   </script>
 </body>
