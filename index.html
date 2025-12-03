@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Multi-Country CSV)</title>
+  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Multi-Country CSV + Web3 JSON)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -68,7 +68,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 12px;
       box-sizing: border-box;
-      min-height: 260px;
+      min-height: 160px;
       resize: vertical;
     }
     input[type="file"] {
@@ -149,16 +149,17 @@
 
   <main>
     <section class="card">
-      <h2>1. Input Data – JSON or CSV</h2>
+      <h2>1. Input Data – JSON, CSV, or Web3 JSON</h2>
       <p style="font-size:12px;opacity:0.9;">
-        Paste a full AcePi JSON payload, load the Master Demo Dataset, or upload a CSV file.
-        CSV supports NG, UK, EU, US tax logic and basic on-chain fields.
+        Paste a full AcePi JSON payload, load the Master Demo Dataset, upload a CSV file, or paste Web3-style JSON
+        (Base / Pi / Solana exports) and transform it into AcePi transactions.
       </p>
 
       <div class="pill-row">
         <span class="tag">JSON: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
         <span class="tag">CSV: NG + UK + EU + US + on-chain</span>
-        <span class="tag">Engine: Rule-based AcePi Lite (offline)</span>
+        <span class="tag">Web3 JSON: Base / Pi / Solana-style</span>
+        <span class="tag">Engine: AcePi Lite (offline rule-based)</span>
       </div>
 
       <div class="row">
@@ -171,8 +172,37 @@
         </button>
       </div>
 
+      <label for="web3Input">Web3 JSON (Base / Pi / Solana-style)</label>
+      <textarea id="web3Input" placeholder='Example:
+{
+  "default_chain": "base",
+  "default_tax_country": "NG",
+  "transactions": [
+    {
+      "hash": "0xabc...",
+      "direction": "in",
+      "amount": 300,
+      "currency": "USDC",
+      "token_symbol": "USDC",
+      "gas_fee": 0.0003,
+      "gas_currency": "ETH",
+      "description": "USDC payment from customer",
+      "counterparty_type": "customer",
+      "wallet_address": "0xYourBusinessWallet",
+      "counterparty_wallet": "0xCustomer",
+      "tax_country": "NG"
+    }
+  ]
+}'></textarea>
+
+      <div style="margin-top:8px; margin-bottom:12px;">
+        <button type="button" class="btn-secondary" id="web3ToPayloadBtn">
+          🔗 Transform Web3 JSON → AcePi Payload
+        </button>
+      </div>
+
       <label for="payloadInput">AcePi JSON Payload</label>
-      <textarea id="payloadInput" placeholder='Paste your JSON here, or build from CSV using the button above.'></textarea>
+      <textarea id="payloadInput" placeholder='Paste your AcePi JSON here, or build it from CSV / Web3 JSON using the buttons above.'></textarea>
 
       <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
         <button id="runBtn">▶ Run AcePi Lite</button>
@@ -208,7 +238,7 @@
   </main>
 
   <script>
-    // Default multi-country tax profiles (very simplified)
+    // Default multi-country tax profiles (simplified)
     const defaultTaxProfiles = {
       NG: { vat_rate: 0.075, vat_applicable: true, wht_service: 0.10, wht_rent: 0.10 },
       UK: { vat_rate: 0.20, vat_applicable: true, wht_service: 0.00, wht_rent: 0.00 },
@@ -216,7 +246,7 @@
       US: { vat_rate: 0.00, vat_applicable: false, wht_service: 0.00, wht_rent: 0.00 }
     };
 
-    // Master Demo payload (NG-focused, but engine now supports multi-country overrides)
+    // Master Demo payload
     const masterDemoPayload = {
       "business_profile": {
         "business_name": "Ace Hybrid Retail & Web3 Hub",
@@ -402,6 +432,7 @@
     };
 
     const payloadInput = document.getElementById("payloadInput");
+    const web3Input = document.getElementById("web3Input");
     const outputEl = document.getElementById("output");
     const summaryEl = document.getElementById("summary");
     const analyticsEl = document.getElementById("analytics");
@@ -411,6 +442,7 @@
     const csvFileInput = document.getElementById("csvFile");
     const loadCsvBtn = document.getElementById("loadCsvBtn");
     const downloadBtn = document.getElementById("downloadBtn");
+    const web3ToPayloadBtn = document.getElementById("web3ToPayloadBtn");
 
     let lastResult = null;
 
@@ -429,7 +461,7 @@
       const headers = lines[0].split(",").map(h => h.trim());
       const rows = [];
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(","); // simple CSV (no quoted commas)
+        const cols = lines[i].split(",");
         if (cols.length === 1 && cols[0].trim() === "") continue;
         const row = {};
         headers.forEach((h, idx) => {
@@ -505,6 +537,72 @@
         statusEl.textContent = "Failed to read CSV file.";
       };
       reader.readAsText(file);
+    });
+
+    function mapWeb3JsonToTransactions(raw) {
+      // raw can be an array or an object with .transactions
+      let txs = [];
+      const top = raw || {};
+      if (Array.isArray(raw)) {
+        txs = raw;
+      } else if (Array.isArray(raw.transactions)) {
+        txs = raw.transactions;
+      } else {
+        throw new Error("Web3 JSON must be an array or an object with a 'transactions' array.");
+      }
+
+      const defaultChain = (top.default_chain || top.chain || "").toLowerCase() || null;
+      const defaultTaxCountry = (top.default_tax_country || top.tax_country || "").toUpperCase() || null;
+
+      return txs.map((t, idx) => ({
+        id: t.id || t.hash || t.signature || `WEB3-${idx + 1}`,
+        date: t.date || t.block_time || "",
+        amount: Number(t.amount || t.value || 0),
+        currency: t.currency || t.token_symbol || "NATIVE",
+        description: t.description || t.note || "",
+        direction: (t.direction || (t.incoming === true ? "in" : t.outgoing === true ? "out" : "")).toLowerCase(),
+        counterparty_type: t.counterparty_type || null,
+        payment_channel: t.payment_channel || "onchain",
+        chain: (t.chain || defaultChain || "").toLowerCase() || null,
+        tx_hash: t.hash || t.signature || null,
+        wallet_address: t.wallet_address || t.to || null,
+        counterparty_wallet: t.counterparty_wallet || t.from || null,
+        contract_address: t.contract_address || null,
+        token_symbol: t.token_symbol || null,
+        gas_fee: t.gas_fee ? Number(t.gas_fee) : null,
+        gas_currency: t.gas_currency || null,
+        tax_country: (t.tax_country || defaultTaxCountry || null),
+        vat_applicable_override: toBool(t.vat_applicable),
+        vat_rate_override: typeof t.vat_rate === "number" ? t.vat_rate : null,
+        wht_applicable_override: toBool(t.wht_applicable),
+        wht_rate_override: typeof t.wht_rate === "number" ? t.wht_rate : null
+      }));
+    }
+
+    web3ToPayloadBtn.addEventListener("click", () => {
+      const raw = web3Input.value.trim();
+      if (!raw) {
+        statusEl.textContent = "Paste Web3 JSON first.";
+        return;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        const transactions = mapWeb3JsonToTransactions(parsed);
+        const payloadFromWeb3 = {
+          business_profile: masterDemoPayload.business_profile,
+          tax_profile: masterDemoPayload.tax_profile,
+          chart_of_accounts: masterDemoPayload.chart_of_accounts,
+          transactions
+        };
+        payloadInput.value = JSON.stringify(payloadFromWeb3, null, 2);
+        statusEl.textContent = `Web3 JSON mapped: ${transactions.length} transactions prepared. Now click 'Run AcePi Lite'.`;
+        outputEl.textContent = "(no response yet)";
+        summaryEl.textContent = "(no summary yet)";
+        analyticsEl.textContent = "(no analytics yet)";
+        lastResult = null;
+      } catch (e) {
+        statusEl.textContent = "Error parsing Web3 JSON: " + e.message;
+      }
     });
 
     function findAccount(coa, codeFallback) {
@@ -901,7 +999,7 @@
     runBtn.addEventListener("click", () => {
       const raw = payloadInput.value.trim();
       if (!raw) {
-        statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV.";
+        statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV/Web3 JSON.";
         outputEl.textContent = "";
         summaryEl.textContent = "(no summary yet)";
         analyticsEl.textContent = "(no analytics yet)";
