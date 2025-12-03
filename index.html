@@ -201,6 +201,9 @@
 
       <h3 style="margin-top:16px;font-size:14px;">3. Summary View (by tax country)</h3>
       <pre id="summary">(no summary yet)</pre>
+
+      <h3 style="margin-top:16px;font-size:14px;">4. Analytics View (categories, chains, channels)</h3>
+      <pre id="analytics">(no analytics yet)</pre>
     </section>
   </main>
 
@@ -401,6 +404,7 @@
     const payloadInput = document.getElementById("payloadInput");
     const outputEl = document.getElementById("output");
     const summaryEl = document.getElementById("summary");
+    const analyticsEl = document.getElementById("analytics");
     const statusEl = document.getElementById("status");
     const runBtn = document.getElementById("runBtn");
     const loadDemoBtn = document.getElementById("loadDemoBtn");
@@ -415,6 +419,7 @@
       statusEl.textContent = "Loaded Master Demo Dataset. Click 'Run AcePi Lite' to process.";
       outputEl.textContent = "(no response yet)";
       summaryEl.textContent = "(no summary yet)";
+      analyticsEl.textContent = "(no analytics yet)";
       lastResult = null;
     });
 
@@ -490,6 +495,7 @@
           statusEl.textContent = `CSV loaded: ${transactions.length} transactions mapped. Now click 'Run AcePi Lite'.`;
           outputEl.textContent = "(no response yet)";
           summaryEl.textContent = "(no summary yet)";
+          analyticsEl.textContent = "(no analytics yet)";
           lastResult = null;
         } catch (e) {
           statusEl.textContent = "Error parsing CSV: " + e.message;
@@ -718,6 +724,7 @@
           wallet_address: tx.wallet_address || null,
           counterparty_wallet: tx.counterparty_wallet || null,
           direction: tx.direction || null,
+          payment_channel: tx.payment_channel || null,
           classification: {
             category: nature,
             matched_account_code: creditAcc.code || "9999",
@@ -811,12 +818,93 @@
       return lines.join("\n");
     }
 
+    function buildAnalytics(result) {
+      if (!result) return "(no analytics yet)";
+      const entries = result.entries || [];
+      if (!entries.length) return "(no analytics yet)";
+
+      const perCategory = {};
+      const perChain = {};
+      const perChannel = {};
+
+      entries.forEach(e => {
+        const amt = Number(e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount ? e.ledger_entry.debit.amount : 0);
+        const dir = e.direction || null;
+        const inflowAmt = dir === "in" ? amt : 0;
+        const outflowAmt = dir === "out" ? amt : 0;
+
+        const cat = (e.classification && e.classification.category) || "unknown";
+        if (!perCategory[cat]) perCategory[cat] = { count: 0, inflows: 0, outflows: 0 };
+        perCategory[cat].count++;
+        perCategory[cat].inflows += inflowAmt;
+        perCategory[cat].outflows += outflowAmt;
+
+        const chain = (e.chain || "OFFCHAIN").toUpperCase();
+        if (!perChain[chain]) perChain[chain] = { count: 0, inflows: 0, outflows: 0 };
+        perChain[chain].count++;
+        perChain[chain].inflows += inflowAmt;
+        perChain[chain].outflows += outflowAmt;
+
+        const channel = (e.payment_channel || "unknown").toLowerCase();
+        if (!perChannel[channel]) perChannel[channel] = { count: 0, inflows: 0, outflows: 0 };
+        perChannel[channel].count++;
+        perChannel[channel].inflows += inflowAmt;
+        perChannel[channel].outflows += outflowAmt;
+      });
+
+      const lines = [];
+
+      lines.push("By classification category:");
+      const catKeys = Object.keys(perCategory);
+      if (!catKeys.length) {
+        lines.push("- (no category data)");
+      } else {
+        catKeys.sort().forEach(c => {
+          const b = perCategory[c];
+          lines.push(
+            `- ${c}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}`
+          );
+        });
+      }
+
+      lines.push("");
+      lines.push("By chain (off-chain vs Base vs Pi etc.):");
+      const chainKeys = Object.keys(perChain);
+      if (!chainKeys.length) {
+        lines.push("- (no chain data)");
+      } else {
+        chainKeys.sort().forEach(ch => {
+          const b = perChain[ch];
+          lines.push(
+            `- ${ch}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}`
+          );
+        });
+      }
+
+      lines.push("");
+      lines.push("By payment channel:");
+      const chanKeys = Object.keys(perChannel);
+      if (!chanKeys.length) {
+        lines.push("- (no channel data)");
+      } else {
+        chanKeys.sort().forEach(ch => {
+          const b = perChannel[ch];
+          lines.push(
+            `- ${ch}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}`
+          );
+        });
+      }
+
+      return lines.join("\n");
+    }
+
     runBtn.addEventListener("click", () => {
       const raw = payloadInput.value.trim();
       if (!raw) {
         statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV.";
         outputEl.textContent = "";
         summaryEl.textContent = "(no summary yet)";
+        analyticsEl.textContent = "(no analytics yet)";
         lastResult = null;
         return;
       }
@@ -827,6 +915,7 @@
         statusEl.textContent = "Payload is not valid JSON. Please fix and try again.";
         outputEl.textContent = "";
         summaryEl.textContent = "(no summary yet)";
+        analyticsEl.textContent = "(no analytics yet)";
         lastResult = null;
         return;
       }
@@ -835,7 +924,8 @@
       lastResult = result;
       outputEl.textContent = JSON.stringify(result, null, 2);
       summaryEl.textContent = buildSummary(result);
-      statusEl.textContent = "Done. AcePi Lite output and summary generated.";
+      analyticsEl.textContent = buildAnalytics(result);
+      statusEl.textContent = "Done. AcePi Lite output, summary, and analytics generated.";
     });
 
     downloadBtn.addEventListener("click", () => {
