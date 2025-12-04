@@ -234,6 +234,9 @@
 
       <h3 style="margin-top:16px;font-size:14px;">4. Analytics View (categories, chains, channels)</h3>
       <pre id="analytics">(no analytics yet)</pre>
+
+      <h3 style="margin-top:16px;font-size:14px;">5. Insights (auto-generated draft)</h3>
+      <pre id="insights">(no insights yet)</pre>
     </section>
   </main>
 
@@ -436,6 +439,7 @@
     const outputEl = document.getElementById("output");
     const summaryEl = document.getElementById("summary");
     const analyticsEl = document.getElementById("analytics");
+    const insightsEl = document.getElementById("insights");
     const statusEl = document.getElementById("status");
     const runBtn = document.getElementById("runBtn");
     const loadDemoBtn = document.getElementById("loadDemoBtn");
@@ -907,6 +911,182 @@
       lines.push(`Total outflows: ${summary.total_outflows ?? 0}`);
       lines.push("");
 
+          function buildInsights(result) {
+      if (!result) return "(no insights yet)";
+
+      const entries = result.entries || [];
+      const summary = result.summary || {};
+      if (!entries.length) return "(no transactions to analyse yet)";
+
+      // Aggregate by country, FX, chain, channel like a mini BI layer
+      const perCountry = {};
+      const perFx = {};
+      const perChain = {};
+      const perChannel = {};
+
+      entries.forEach(e => {
+        const amt = Number(
+          e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount
+            ? e.ledger_entry.debit.amount
+            : 0
+        );
+        const dir = e.direction || null;
+        const inflowAmt = dir === "in" ? amt : 0;
+        const outflowAmt = dir === "out" ? amt : 0;
+
+        const country = e.tax_country || "Unknown";
+        if (!perCountry[country]) {
+          perCountry[country] = { count: 0, inflows: 0, outflows: 0, vat: 0, wht: 0 };
+        }
+        const cBucket = perCountry[country];
+        cBucket.count++;
+        cBucket.inflows += inflowAmt;
+        cBucket.outflows += outflowAmt;
+        if (e.tax_analysis) {
+          cBucket.vat += Number(e.tax_analysis.vat_amount || 0);
+          cBucket.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
+        }
+
+        const fx = e.fx || null;
+        if (fx && fx.fx_currency) {
+          const cur = fx.fx_currency.toUpperCase();
+          if (!perFx[cur]) {
+            perFx[cur] = { count: 0, fx_amount: 0, base_from_fx: 0, recorded_base: 0 };
+          }
+          const fBucket = perFx[cur];
+          fBucket.count++;
+          if (fx.fx_amount != null) fBucket.fx_amount += Number(fx.fx_amount) || 0;
+          if (fx.base_amount_from_fx != null) fBucket.base_from_fx += Number(fx.base_amount_from_fx) || 0;
+          if (fx.recorded_base_amount != null) fBucket.recorded_base += Number(fx.recorded_base_amount) || 0;
+        }
+
+        const chain = (e.chain || "OFFCHAIN").toUpperCase();
+        if (!perChain[chain]) perChain[chain] = { count: 0, volume: 0 };
+        perChain[chain].count++;
+        perChain[chain].volume += amt;
+
+        const channel = (e.payment_channel || "unknown").toLowerCase();
+        if (!perChannel[channel]) perChannel[channel] = { count: 0, volume: 0 };
+        perChannel[channel].count++;
+        perChannel[channel].volume += amt;
+      });
+
+      // Helper to get "top" entry by a numeric field
+      function topBy(obj, field) {
+        const keys = Object.keys(obj);
+        if (!keys.length) return null;
+        return keys
+          .map(k => ({ key: k, ...obj[k] }))
+          .sort((a, b) => (b[field] || 0) - (a[field] || 0))[0];
+      }
+
+      const topCountry = topBy(perCountry, "inflows");
+      const topFx = topBy(perFx, "recorded_base");
+      const topChain = topBy(perChain, "volume");
+      const topChannel = topBy(perChannel, "volume");
+
+      const totalTx = summary.total_transactions ?? entries.length;
+      const totalIn = summary.total_inflows ?? 0;
+      const totalOut = summary.total_outflows ?? 0;
+      const net = +(totalIn - totalOut).toFixed(2);
+
+      const lines = [];
+
+      lines.push("Ace Insights – Draft Narrative");
+      lines.push("================================");
+      lines.push("");
+      lines.push(`1) Executive Snapshot`);
+      lines.push(
+        `• Transactions processed: ${totalTx} | Total inflows: ${totalIn.toFixed(2)} | Total outflows: ${totalOut.toFixed(2)} | Net: ${net.toFixed(2)}`
+      );
+      if (topCountry) {
+        lines.push(
+          `• Most active tax country: ${topCountry.key} (inflows: ${topCountry.inflows.toFixed(2)}, outflows: ${topCountry.outflows.toFixed(2)})`
+        );
+      }
+      if (topFx) {
+        lines.push(
+          `• Main FX currency: ${topFx.key} (fx amount: ${topFx.fx_amount.toFixed(2)}, base volume: ${topFx.recorded_base.toFixed(2)})`
+        );
+      }
+      if (topChain) {
+        lines.push(
+          `• Dominant chain: ${topChain.key} (volume: ${topChain.volume.toFixed(2)})`
+        );
+      }
+      if (topChannel) {
+        lines.push(
+          `• Key payment channel: ${topChannel.key} (volume: ${topChannel.volume.toFixed(2)})`
+        );
+      }
+
+      lines.push("");
+      lines.push("2) Tax & Compliance Signals");
+      Object.keys(perCountry).sort().forEach(ct => {
+        const c = perCountry[ct];
+        lines.push(
+          `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}`
+        );
+      });
+      if (!Object.keys(perCountry).length) {
+        lines.push("• No tax country breakdown available.");
+      }
+
+      lines.push("");
+      lines.push("3) FX Exposure View");
+      const fxKeys = Object.keys(perFx);
+      if (!fxKeys.length) {
+        lines.push("• No FX-tagged transactions in this dataset.");
+      } else {
+        fxKeys.sort().forEach(cur => {
+          const f = perFx[cur];
+          lines.push(
+            `• ${cur}: fx_amount=${f.fx_amount.toFixed(2)}, base_from_fx=${f.base_from_fx.toFixed(2)}, recorded_base=${f.recorded_base.toFixed(2)}`
+          );
+        });
+      }
+
+      lines.push("");
+      lines.push("4) Channels & Chains Focus");
+      const chainKeys = Object.keys(perChain).sort();
+      if (chainKeys.length) {
+        lines.push("• Chains:");
+        chainKeys.forEach(ch => {
+          const b = perChain[ch];
+          lines.push(
+            `   - ${ch}: tx=${b.count}, volume=${b.volume.toFixed(2)}`
+          );
+        });
+      }
+      const chanKeys = Object.keys(perChannel).sort();
+      if (chanKeys.length) {
+        lines.push("• Payment channels:");
+        chanKeys.forEach(ch => {
+          const b = perChannel[ch];
+          lines.push(
+            `   - ${ch}: tx=${b.count}, volume=${b.volume.toFixed(2)}`
+          );
+        });
+      }
+
+      lines.push("");
+      lines.push("5) X / Twitter Draft (You can refine)");
+      lines.push("");
+      lines.push(`Hook: Today’s ledger tells a deeper story than just numbers.`);
+      lines.push(
+        `Body: We processed ${totalTx} transactions across ${Object.keys(perCountry).length || 1} tax jurisdictions, with net cash flow of ${net.toFixed(2)} in base currency. `
+        + (topChain ? `On-chain activity on ${topChain.key} is emerging as a key rail, ` : "")
+        + (topFx ? `while ${topFx.key} remains the primary FX exposure.` : "")
+      );
+      lines.push(
+        `CTA: If you’re not reading your on-chain and FX flows like a story, you’re leaving strategy on the table.`
+      );
+      lines.push("");
+      lines.push("→ Copy, personalise, add scripture/insight, then post.");
+
+      return lines.join("\n");
+    }
+
       const entries = result.entries || [];
       const perCountry = {};
       const perFx = {};
@@ -1055,13 +1235,14 @@
     }
 
     runBtn.addEventListener("click", () => {
-      const raw = payloadInput.value.trim();
-      if (!raw) {
-        statusEl.textContent = "Please paste a JSON payload, load the demo, or build from CSV/Web3 JSON.";
-        outputEl.textContent = "";
-        summaryEl.textContent = "(no summary yet)";
-        analyticsEl.textContent = "(no analytics yet)";
-        lastResult = null;
+            const result = acepiLiteEngine(parsed);
+      lastResult = result;
+      outputEl.textContent = JSON.stringify(result, null, 2);
+      summaryEl.textContent = buildSummary(result);
+      analyticsEl.textContent = buildAnalytics(result);
+      insightsEl.textContent = buildInsights(result);
+      statusEl.textContent = "Done. AcePi Lite output, summary, analytics, FX overview and insights generated.";
+      lastResult = null;
         return;
       }
       let parsed;
