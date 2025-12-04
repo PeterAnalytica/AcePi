@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AcePi Lite – Hybrid Accounting & Tax Engine (Multi-Country + Web3 + FX)</title>
+  <title>AcePi Lite – Hybrid Accounting & Tax Intelligence Engine</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -52,6 +52,10 @@
       margin-top: 0;
       font-size: 16px;
     }
+    .card h3 {
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
     label {
       display: block;
       font-size: 13px;
@@ -60,26 +64,22 @@
     }
     textarea {
       width: 100%;
+      min-height: 220px;
       border-radius: 8px;
-      border: 1px solid #374151;
+      border: 1px solid #111827;
       background: #020617;
       color: #e5e7eb;
       padding: 8px;
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
       font-size: 12px;
       box-sizing: border-box;
-      min-height: 160px;
       resize: vertical;
-    }
-    input[type="file"] {
-      font-size: 12px;
-      color: #e5e7eb;
     }
     button {
       border-radius: 999px;
       border: none;
-      padding: 10px 18px;
-      font-size: 14px;
+      padding: 8px 16px;
+      font-size: 13px;
       cursor: pointer;
       background: #22c55e;
       color: #022c22;
@@ -87,6 +87,8 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      margin-right: 8px;
+      margin-top: 6px;
     }
     button:disabled {
       opacity: 0.6;
@@ -97,14 +99,16 @@
       color: #e5e7eb;
       border: 1px solid #374151;
     }
-    .tag {
-      display: inline-flex;
-      padding: 2px 8px;
-      border-radius: 999px;
+    pre {
+      background: #020617;
+      border-radius: 8px;
+      border: 1px solid #111827;
+      padding: 10px;
       font-size: 11px;
-      border: 1px solid #4b5563;
-      margin-right: 6px;
-      margin-bottom: 4px;
+      max-height: 240px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     .status {
       font-size: 12px;
@@ -112,1394 +116,1098 @@
       min-height: 18px;
       opacity: 0.9;
     }
-    pre {
-      background: #020617;
-      border-radius: 8px;
-      border: 1px solid #111827;
-      padding: 10px;
+    .muted {
+      opacity: 0.8;
       font-size: 12px;
-      max-height: 480px;
-      overflow: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
     }
-    .pill-row {
-      margin-bottom: 12px;
+    a.small-link {
+      font-size: 11px;
+      color: #38bdf8;
+      text-decoration: none;
     }
-    .row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      margin-bottom: 8px;
+    a.small-link:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
 <body>
   <header>
     <div>
-      <h1>AcePi Lite – Hybrid Accounting & Tax Engine</h1>
-      <span>Multi-country • Web2 + Web3 • VAT, WHT & FX-aware</span>
+      <h1>AcePi Lite</h1>
+      <span>Hybrid accounting, tax, FX & chain intelligence – browser prototype</span>
     </div>
     <div style="text-align:right;font-size:11px;opacity:0.8;">
       Ace Consulting & Analytics (ACA)<br />
-      Browser-only prototype – no backend required
+      AcePi → ACA Control Room → Ace Insights
     </div>
   </header>
 
   <main>
     <section class="card">
-      <h2>1. Input Data – JSON, CSV, or Web3 JSON</h2>
-      <p style="font-size:12px;opacity:0.9;">
-        Paste a full AcePi JSON payload, load the Master Demo Dataset, upload a CSV file, or paste Web3-style JSON
-        (Base / Pi / Solana exports) and transform it into AcePi transactions. FX fields are supported.
+      <h2>1. Input Payload (JSON)</h2>
+      <p class="muted">
+        Paste a payload with <code>business_profile</code>, <code>tax_profile</code>,
+        <code>chart_of_accounts</code> and <code>transactions[]</code> – or click
+        “Load Demo Payload (Master Dataset)” to use the embedded multi-country test set.
       </p>
 
-      <div class="pill-row">
-        <span class="tag">JSON: business_profile, tax_profile, chart_of_accounts, transactions[]</span>
-        <span class="tag">CSV: NG + UK + EU + US + on-chain + FX</span>
-        <span class="tag">Web3 JSON: Base / Pi / Solana</span>
-        <span class="tag">Engine: AcePi Lite (offline rule-based)</span>
-      </div>
+      <label for="payloadInput">AcePi Payload JSON</label>
+      <textarea id="payloadInput" placeholder="{ &quot;business_profile&quot;: { ... }, &quot;transactions&quot;: [ ... ] }"></textarea>
 
-      <div class="row">
-        <div>
-          <label for="csvFile">Upload CSV (AcePi advanced + FX template)</label>
-          <input id="csvFile" type="file" accept=".csv" />
-        </div>
-        <button type="button" class="btn-secondary" id="loadCsvBtn">
-          📂 Load CSV → Build Payload
-        </button>
-      </div>
-
-      <label for="web3Input">Web3 JSON (Base / Pi / Solana-style)</label>
-      <textarea id="web3Input" placeholder='Example:
-{
-  "default_chain": "base",
-  "default_tax_country": "NG",
-  "transactions": [
-    {
-      "hash": "0xabc...",
-      "direction": "in",
-      "amount": 300,
-      "currency": "USDC",
-      "token_symbol": "USDC",
-      "gas_fee": 0.0003,
-      "gas_currency": "ETH",
-      "description": "USDC payment from customer",
-      "counterparty_type": "customer",
-      "wallet_address": "0xYourBusinessWallet",
-      "counterparty_wallet": "0xCustomer",
-      "tax_country": "NG"
-    }
-  ]
-}'></textarea>
-
-      <div style="margin-top:8px; margin-bottom:12px;">
-        <button type="button" class="btn-secondary" id="web3ToPayloadBtn">
-          🔗 Transform Web3 JSON → AcePi Payload
-        </button>
-      </div>
-
-      <label for="payloadInput">AcePi JSON Payload</label>
-      <textarea id="payloadInput" placeholder='Paste your AcePi JSON here, or build it from CSV / Web3 JSON using the buttons above.'></textarea>
-
-      <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-        <button id="runBtn">▶ Run AcePi Lite</button>
-        <button type="button" class="btn-secondary" id="loadDemoBtn">
-          Load Demo Payload (Master Dataset)
-        </button>
+      <div style="margin-top:8px;">
+        <button id="loadDemoBtn">🧪 Load Demo Payload (Master Dataset)</button>
+        <button id="clearBtn" class="btn-secondary">Clear</button>
       </div>
 
       <div class="status" id="status"></div>
+
+      <p class="muted" style="margin-top:10px;">
+        Next steps:
+        <br />1️⃣ Adjust or paste your own payload if needed.
+        <br />2️⃣ Click <strong>Run AcePi Lite</strong> to classify & generate ledger output.
+        <br />3️⃣ Use the downloaded JSON in
+        <a class="small-link" href="https://peteranalytica.github.io/ACA-ControlRoom/" target="_blank">ACA Control Room</a>
+        or
+        <a class="small-link" href="https://peteranalytica.github.io/AceInsights/" target="_blank">Ace Insights</a>.
+      </p>
     </section>
 
     <section class="card">
-      <h2>2. AcePi Lite Output</h2>
-      <p style="font-size:12px;opacity:0.9;">
-        Output is generated locally in your browser – no external API. For production,
-        connect this shell to the full AcePi LLM engine.
-      </p>
-
+      <h2>2. AcePi Output & Views</h2>
       <div style="margin-bottom:8px;">
-        <button type="button" class="btn-secondary" id="downloadBtn">
-          ⬇ Download JSON Output
-        </button>
+        <button id="runBtn">▶ Run AcePi Lite</button>
+        <button id="downloadBtn" class="btn-secondary" disabled>⬇ Download JSON Output</button>
       </div>
 
-      <pre id="output">(no response yet)</pre>
+      <h3>Raw AcePi Output (JSON)</h3>
+      <pre id="output">(no output yet)</pre>
 
-      <h3 style="margin-top:16px;font-size:14px;">3. Summary View (by tax country + FX overview)</h3>
+      <h3 style="margin-top:16px;font-size:14px;">Summary View</h3>
       <pre id="summary">(no summary yet)</pre>
 
-      <h3 style="margin-top:16px;font-size:14px;">4. Analytics View (categories, chains, channels)</h3>
+      <h3 style="margin-top:16px;font-size:14px;">Analytics View (categories, chains, channels)</h3>
       <pre id="analytics">(no analytics yet)</pre>
 
-      <h3 style="margin-top:16px;font-size:14px;">5. Insights (auto-generated draft)</h3>
+      <h3 style="margin-top:16px;font-size:14px;">FX Overview</h3>
+      <pre id="fxOverview">(no FX data yet)</pre>
+
+      <h3 style="margin-top:16px;font-size:14px;">Insights (auto-generated draft)</h3>
       <pre id="insights">(no insights yet)</pre>
     </section>
   </main>
 
   <script>
-    // Default multi-country tax profiles (simplified)
-    const defaultTaxProfiles = {
-      NG: { vat_rate: 0.075, vat_applicable: true, wht_service: 0.10, wht_rent: 0.10 },
-      UK: { vat_rate: 0.20, vat_applicable: true, wht_service: 0.00, wht_rent: 0.00 },
-      EU: { vat_rate: 0.21, vat_applicable: true, wht_service: 0.00, wht_rent: 0.00 },
-      US: { vat_rate: 0.00, vat_applicable: false, wht_service: 0.00, wht_rent: 0.00 }
-    };
-
-    // Master Demo payload
-    const masterDemoPayload = {  
-  business_profile: {
-    business_name: "Ace Hybrid Retail & Web3 Hub",
-    industry: "Retail & Digital Services",
-    country: "Nigeria",
-    base_currency: "NGN"
-  },
-  tax_profile: {
-    country: "NG",
-    vat_applicable: true,
-    vat_registered: true,
-    vat_rate: 0.075,
-    treat_sales_as_vat_inclusive: true,
-    withholding_tax_enabled: true,
-    default_wht_service_rate: 0.10,
-    default_wht_contract_rate: 0.05,
-    default_wht_rent_rate: 0.10,
-    input_vat_claimable: true
-  },
-  chart_of_accounts: [
-    { code: "1000", name: "Cash and Bank", type: "asset" },
-    { code: "1010", name: "On-chain Wallet - Base (USDC)", type: "asset" },
-    { code: "1011", name: "On-chain Wallet - Pi", type: "asset" },
-    { code: "2000", name: "Accounts Payable", type: "liability" },
-    { code: "3000", name: "Owner's Equity", type: "equity" },
-    { code: "4000", name: "Sales Revenue (Local)", type: "income" },
-    { code: "4010", name: "Sales Revenue (On-chain)", type: "income" },
-    { code: "4011", name: "Sales Revenue (Pi Network)", type: "income" },
-    { code: "5000", name: "Cost of Goods Sold", type: "expense" },
-    { code: "6001", name: "Office & Shop Expenses", type: "expense" },
-    { code: "6002", name: "Professional Fees Expense", type: "expense" },
-    { code: "6003", name: "Rent Expense", type: "expense" },
-    { code: "6005", name: "Network Fees (Gas)", type: "expense" },
-    { code: "9999", name: "Unclassified Transaction", type: "expense" }
-  ],
-  transactions: [
-    // ───────── Base local retail + on-chain demo ─────────
-    {
-      id: "DEM-001",
-      date: "2025-11-20",
-      amount: 350000,
-      currency: "NGN",
-      description: "In-store POS sales for the day",
-      direction: "in",
-      counterparty_type: "customer",
-      payment_channel: "pos",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-002",
-      date: "2025-11-20",
-      amount: 145000,
-      currency: "NGN",
-      description: "Inventory purchase from local supplier (wholesale goods)",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "bank_transfer",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-003",
-      date: "2025-11-21",
-      amount: 25000,
-      currency: "NGN",
-      description: "Office rent for November (shop space)",
-      direction: "out",
-      counterparty_type: "landlord",
-      payment_channel: "bank_transfer",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-004",
-      date: "2025-11-21",
-      amount: 42000,
-      currency: "NGN",
-      description: "Payment to freelance graphic designer for marketing flyers",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "bank_transfer",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-005",
-      date: "2025-11-22",
-      amount: 180000,
-      currency: "NGN",
-      description: "Online sales paid via bank transfer (Jumia-like order)",
-      direction: "in",
-      counterparty_type: "customer",
-      payment_channel: "bank_transfer",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-006",
-      date: "2025-11-23",
-      amount: 300,
-      currency: "USDC",
-      description: "Online order paid in USDC on Base",
-      direction: "in",
-      counterparty_type: "customer",
-      payment_channel: "onchain",
-      chain: "base",
-      tx_hash: "0xbase300usdcin",
-      wallet_address: "0xHybridStoreWallet",
-      counterparty_wallet: "0xCustomerWallet1",
-      contract_address: null,
-      token_symbol: "USDC",
-      token_decimal: 6,
-      gas_fee: 0.00025,
-      gas_currency: "ETH",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-007",
-      date: "2025-11-23",
-      amount: 120,
-      currency: "USDC",
-      description: "Payment to web developer in USDC for website update",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "onchain",
-      chain: "base",
-      tx_hash: "0xbase120usdcout",
-      wallet_address: "0xHybridStoreWallet",
-      counterparty_wallet: "0xDeveloperWallet",
-      contract_address: null,
-      token_symbol: "USDC",
-      token_decimal: 6,
-      gas_fee: 0.00030,
-      gas_currency: "ETH",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-008",
-      date: "2025-11-23",
-      amount: 0.00030,
-      currency: "ETH",
-      description: "Gas fee for USDC payment to web developer on Base",
-      direction: "out",
-      counterparty_type: "network",
-      payment_channel: "onchain",
-      chain: "base",
-      tx_hash: "0xbase120usdcout",
-      wallet_address: "0xHybridStoreWallet",
-      counterparty_wallet: null,
-      contract_address: null,
-      token_symbol: "ETH",
-      token_decimal: 18,
-      gas_fee: 0.00030,
-      gas_currency: "ETH",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-009",
-      date: "2025-11-24",
-      amount: 60,
-      currency: "PI",
-      description: "Sale of goods paid with Pi Network at physical store",
-      direction: "in",
-      counterparty_type: "customer",
-      payment_channel: "onchain",
-      chain: "pi",
-      tx_hash: "0xpi60sale",
-      wallet_address: "PiBusinessWalletAddress",
-      counterparty_wallet: "PiCustomerWallet1",
-      contract_address: null,
-      token_symbol: "PI",
-      token_decimal: 8,
-      gas_fee: 0,
-      gas_currency: "PI",
-      tax_country: "NG"
-    },
-    {
-      id: "DEM-010",
-      date: "2025-11-24",
-      amount: 15,
-      currency: "PI",
-      description: "Small business service payment to local technician in Pi",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "onchain",
-      chain: "pi",
-      tx_hash: "0xpi15service",
-      wallet_address: "PiBusinessWalletAddress",
-      counterparty_wallet: "PiTechnicianWallet",
-      contract_address: null,
-      token_symbol: "PI",
-      token_decimal: 8,
-      gas_fee: 0,
-      gas_currency: "PI",
-      tax_country: "NG"
-    },
-
-    // ───────── FX + Professional exams & education ─────────
-    {
-      id: "FX-ACCA-GBP-001",
-      date: "2025-12-01",
-      amount: 1800000,
-      currency: "NGN",
-      description: "ACCA annual subscription (GBP payment, converted to NGN)",
-      direction: "out",
-      counterparty_type: "professional_body",
-      payment_channel: "bank_transfer",
-      tax_country: "NG",
-      fx_currency: "GBP",
-      fx_amount: 1000,
-      fx_rate_to_base: 1800,
-      fx_fee: 0
-    },
-    {
-      id: "FX-CPA-USD-001",
-      date: "2025-12-01",
-      amount: 2250000,
-      currency: "NGN",
-      description: "CPA US annual dues (USD, FX fee included separately)",
-      direction: "out",
-      counterparty_type: "professional_body",
-      payment_channel: "bank_transfer",
-      tax_country: "NG",
-      fx_currency: "USD",
-      fx_amount: 1500,
-      fx_rate_to_base: 1500,
-      fx_fee: 5000
-    },
-    {
-      id: "FX-ICAN-NGN-001",
-      date: "2025-12-02",
-      amount: 180000,
-      currency: "NGN",
-      description: "ICAN exam registration (NGN local payment)",
-      direction: "out",
-      counterparty_type: "professional_body",
-      payment_channel: "card",
-      tax_country: "NG",
-      fx_currency: "NGN",
-      fx_amount: 180000,
-      fx_rate_to_base: 1,
-      fx_fee: 0
-    },
-    {
-      id: "FX-ICAN-USD-001",
-      date: "2025-12-02",
-      amount: 950000,
-      currency: "NGN",
-      description: "ICAN fees paid from diaspora in USD (converted to NGN)",
-      direction: "out",
-      counterparty_type: "professional_body",
-      payment_channel: "bank_transfer",
-      tax_country: "NG",
-      fx_currency: "USD",
-      fx_amount: 1000,
-      fx_rate_to_base: 950,
-      fx_fee: 2500
-    },
-    {
-      id: "FX-ICAN-GBP-001",
-      date: "2025-12-02",
-      amount: 1200000,
-      currency: "NGN",
-      description: "ICAN fees in GBP (UK-based student)",
-      direction: "out",
-      counterparty_type: "professional_body",
-      payment_channel: "bank_transfer",
-      tax_country: "NG",
-      fx_currency: "GBP",
-      fx_amount: 800,
-      fx_rate_to_base: 1500,
-      fx_fee: 3000
-    },
-    {
-      id: "FX-CFA-USD-001",
-      date: "2025-12-03",
-      amount: 4500000,
-      currency: "NGN",
-      description: "CFA exam + registration (USD, FX conversion to NGN)",
-      direction: "out",
-      counterparty_type: "exam_body",
-      payment_channel: "bank_transfer",
-      tax_country: "NG",
-      fx_currency: "USD",
-      fx_amount: 3000,
-      fx_rate_to_base: 1500,
-      fx_fee: 10000
-    },
-    {
-      id: "FX-SAT-USD-001",
-      date: "2025-12-03",
-      amount: 300000,
-      currency: "NGN",
-      description: "SAT exam fee (USD, NG student)",
-      direction: "out",
-      counterparty_type: "exam_body",
-      payment_channel: "card",
-      tax_country: "US",
-      fx_currency: "USD",
-      fx_amount: 200,
-      fx_rate_to_base: 1500,
-      fx_fee: 2500
-    },
-    {
-      id: "FX-TOEFL-USD-001",
-      date: "2025-12-03",
-      amount: 375000,
-      currency: "NGN",
-      description: "TOEFL exam fee (USD, NG student)",
-      direction: "out",
-      counterparty_type: "exam_body",
-      payment_channel: "card",
-      tax_country: "US",
-      fx_currency: "USD",
-      fx_amount: 250,
-      fx_rate_to_base: 1500,
-      fx_fee: 3000
-    },
-    {
-      id: "FX-UNI-UK-001",
-      date: "2025-12-05",
-      amount: 18000000,
-      currency: "NGN",
-      description: "UK university MBA tuition (GBP → NGN)",
-      direction: "out",
-      counterparty_type: "education_institution",
-      payment_channel: "bank_transfer",
-      tax_country: "UK",
-      fx_currency: "GBP",
-      fx_amount: 15000,
-      fx_rate_to_base: 1200,
-      fx_fee: 50000
-    },
-    {
-      id: "FX-SECONDARY-NG-001",
-      date: "2025-12-05",
-      amount: 350000,
-      currency: "NGN",
-      description: "Local secondary school fees (NGN)",
-      direction: "out",
-      counterparty_type: "education_institution",
-      payment_channel: "bank_transfer",
-      tax_country: "NG",
-      fx_currency: "NGN",
-      fx_amount: 350000,
-      fx_rate_to_base: 1,
-      fx_fee: 0
-    },
-
-    // ───────── Exchanges & on-chain wallets ─────────
-    {
-      id: "EX-BINANCE-IN-001",
-      date: "2025-12-06",
-      amount: 750000,
-      currency: "NGN",
-      description: "USDT deposit from Binance to business wallet (estimated NGN)",
-      direction: "in",
-      counterparty_type: "exchange",
-      payment_channel: "binance",
-      chain: "bsc",
-      token_symbol: "USDT",
-      gas_fee: 0.0003,
-      gas_currency: "BNB",
-      tax_country: "NG",
-      fx_currency: "USDT",
-      fx_amount: 500,
-      fx_rate_to_base: 1500,
-      fx_fee: 0
-    },
-    {
-      id: "EX-BINANCE-OUT-001",
-      date: "2025-12-06",
-      amount: 600000,
-      currency: "NGN",
-      description: "USDT withdrawal to Binance from business wallet",
-      direction: "out",
-      counterparty_type: "exchange",
-      payment_channel: "binance",
-      chain: "bsc",
-      token_symbol: "USDT",
-      gas_fee: 0.00025,
-      gas_currency: "BNB",
-      tax_country: "NG",
-      fx_currency: "USDT",
-      fx_amount: 400,
-      fx_rate_to_base: 1500,
-      fx_fee: 0
-    },
-    {
-      id: "EX-BYBIT-IN-001",
-      date: "2025-12-07",
-      amount: 450000,
-      currency: "NGN",
-      description: "Income from trading profits moved from Bybit to business",
-      direction: "in",
-      counterparty_type: "exchange",
-      payment_channel: "bybit",
-      chain: "eth",
-      token_symbol: "USDT",
-      gas_fee: 0.00021,
-      gas_currency: "ETH",
-      tax_country: "NG",
-      fx_currency: "USDT",
-      fx_amount: 300,
-      fx_rate_to_base: 1500,
-      fx_fee: 0
-    },
-    {
-      id: "EX-OKX-OUT-001",
-      date: "2025-12-07",
-      amount: 200000,
-      currency: "NGN",
-      description: "Payment to supplier via OKX (USDT onchain)",
-      direction: "out",
-      counterparty_type: "exchange",
-      payment_channel: "okx",
-      chain: "eth",
-      token_symbol: "USDT",
-      gas_fee: 0.00019,
-      gas_currency: "ETH",
-      tax_country: "NG",
-      fx_currency: "USDT",
-      fx_amount: 130,
-      fx_rate_to_base: 1538.46,
-      fx_fee: 0
-    },
-    {
-      id: "WAL-METAMASK-BASE-001",
-      date: "2025-12-08",
-      amount: 225000,
-      currency: "NGN",
-      description: "Payment to web developer via MetaMask on Base (USDC)",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "metamask",
-      chain: "base",
-      token_symbol: "USDC",
-      gas_fee: 0.00032,
-      gas_currency: "ETH",
-      tax_country: "NG",
-      fx_currency: "USDC",
-      fx_amount: 150,
-      fx_rate_to_base: 1500,
-      fx_fee: 0
-    },
-    {
-      id: "WAL-TON-001",
-      date: "2025-12-08",
-      amount: 150000,
-      currency: "NGN",
-      description: "TON payment received from customer",
-      direction: "in",
-      counterparty_type: "customer",
-      payment_channel: "ton",
-      chain: "ton",
-      token_symbol: "TON",
-      gas_fee: 0.02,
-      gas_currency: "TON",
-      tax_country: "NG",
-      fx_currency: "TON",
-      fx_amount: 300,
-      fx_rate_to_base: 500,
-      fx_fee: 0
-    },
-
-    // ───────── Merchants & subscriptions ─────────
-    {
-      id: "MER-AMAZON-INV-001",
-      date: "2025-12-09",
-      amount: 320000,
-      currency: "NGN",
-      description: "Electronics for office purchased on Amazon (USD)",
-      direction: "out",
-      counterparty_type: "merchant",
-      payment_channel: "amazon",
-      tax_country: "US",
-      fx_currency: "USD",
-      fx_amount: 200,
-      fx_rate_to_base: 1600,
-      fx_fee: 0
-    },
-    {
-      id: "MER-ALIBABA-INV-001",
-      date: "2025-12-09",
-      amount: 1450000,
-      currency: "NGN",
-      description: "Bulk inventory purchased on Alibaba (USD)",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "alibaba",
-      tax_country: "CN",
-      fx_currency: "USD",
-      fx_amount: 1000,
-      fx_rate_to_base: 1450,
-      fx_fee: 0
-    },
-    {
-      id: "MER-WIX-SUB-001",
-      date: "2025-12-10",
-      amount: 49000,
-      currency: "NGN",
-      description: "Monthly Wix website subscription (USD)",
-      direction: "out",
-      counterparty_type: "merchant",
-      payment_channel: "wix",
-      tax_country: "IL",
-      fx_currency: "USD",
-      fx_amount: 49,
-      fx_rate_to_base: 1000,
-      fx_fee: 0
-    },
-    {
-      id: "MER-NVIDIA-GPU-001",
-      date: "2025-12-10",
-      amount: 1200000,
-      currency: "NGN",
-      description: "NVIDIA GPU purchase for AI workloads (USD)",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "nvidia",
-      tax_country: "US",
-      fx_currency: "USD",
-      fx_amount: 800,
-      fx_rate_to_base: 1500,
-      fx_fee: 5000
-    },
-    {
-      id: "MER-INVESTOPEDIA-SUB-001",
-      date: "2025-12-11",
-      amount: 39000,
-      currency: "NGN",
-      description: "Investopedia Pro subscription (USD)",
-      direction: "out",
-      counterparty_type: "information_service",
-      payment_channel: "investopedia",
-      tax_country: "US",
-      fx_currency: "USD",
-      fx_amount: 39,
-      fx_rate_to_base: 1000,
-      fx_fee: 0
-    },
-
-    // ───────── Pi Network – income + expense ─────────
-    {
-      id: "PI-PAYMENT-STORE-001",
-      date: "2025-12-11",
-      amount: 60000,
-      currency: "NGN",
-      description: "In-store Pi Network payment for goods (valued in NGN)",
-      direction: "in",
-      counterparty_type: "customer",
-      payment_channel: "pi",
-      chain: "pi",
-      token_symbol: "PI",
-      tax_country: "NG",
-      fx_currency: "PI",
-      fx_amount: 60,
-      fx_rate_to_base: 1000,
-      fx_fee: 0
-    },
-    {
-      id: "PI-SERVICE-TECH-001",
-      date: "2025-12-11",
-      amount: 15000,
-      currency: "NGN",
-      description: "Service payment to local technician in Pi (valued in NGN)",
-      direction: "out",
-      counterparty_type: "supplier",
-      payment_channel: "pi",
-      chain: "pi",
-      token_symbol: "PI",
-      tax_country: "NG",
-      fx_currency: "PI",
-      fx_amount: 15,
-      fx_rate_to_base: 1000,
-      fx_fee: 0
-    }
-  ]
-};
- 
+    // ─────────────────────────────────────────────
+    // Master demo payload – multi-country, FX, Pi, Base, exchanges & merchants
+    // ─────────────────────────────────────────────
+    const masterDemoPayload = {
+      business_profile: {
+        business_name: "Ace Hybrid Retail & Web3 Hub",
+        industry: "Retail & Digital Services",
+        country: "Nigeria",
+        base_currency: "NGN"
       },
-      "tax_profile": {
-        "country": "NG",
-        "vat_applicable": true,
-        "vat_registered": true,
-        "vat_rate": 0.075,
-        "treat_sales_as_vat_inclusive": true,
-        "withholding_tax_enabled": true,
-        "default_wht_service_rate": 0.10,
-        "default_wht_contract_rate": 0.05,
-        "default_wht_rent_rate": 0.10,
-        "input_vat_claimable": true
+      tax_profile: {
+        country: "NG",
+        vat_applicable: true,
+        vat_registered: true,
+        vat_rate: 0.075,
+        treat_sales_as_vat_inclusive: true,
+        withholding_tax_enabled: true,
+        default_wht_service_rate: 0.10,
+        default_wht_contract_rate: 0.05,
+        default_wht_rent_rate: 0.10,
+        input_vat_claimable: true
       },
-      "chart_of_accounts": [
-        { "code": "1000", "name": "Cash and Bank", "type": "asset" },
-        { "code": "1010", "name": "On-chain Wallet - Base (USDC)", "type": "asset" },
-        { "code": "1011", "name": "On-chain Wallet - Pi", "type": "asset" },
-        { "code": "2000", "name": "Accounts Payable", "type": "liability" },
-        { "code": "3000", "name": "Owner's Equity", "type": "equity" },
-        { "code": "4000", "name": "Sales Revenue (Local)", "type": "income" },
-        { "code": "4010", "name": "Sales Revenue (On-chain)", "type": "income" },
-        { "code": "4011", "name": "Sales Revenue (Pi Network)", "type": "income" },
-        { "code": "5000", "name": "Cost of Goods Sold", "type": "expense" },
-        { "code": "6001", "name": "Office & Shop Expenses", "type": "expense" },
-        { "code": "6002", "name": "Professional Fees Expense", "type": "expense" },
-        { "code": "6003", "name": "Rent Expense", "type": "expense" },
-        { "code": "6005", "name": "Network Fees (Gas)", "type": "expense" },
-        { "code": "9999", "name": "Unclassified Transaction", "type": "expense" }
+      chart_of_accounts: [
+        { code: "1000", name: "Cash and Bank", type: "asset" },
+        { code: "1010", name: "On-chain Wallet - Base (USDC)", type: "asset" },
+        { code: "1011", name: "On-chain Wallet - Pi", type: "asset" },
+        { code: "2000", name: "Accounts Payable", type: "liability" },
+        { code: "3000", name: "Owner's Equity", type: "equity" },
+        { code: "4000", name: "Sales Revenue (Local)", type: "income" },
+        { code: "4010", name: "Sales Revenue (On-chain)", type: "income" },
+        { code: "4011", name: "Sales Revenue (Pi Network)", type: "income" },
+        { code: "5000", name: "Cost of Goods Sold", type: "expense" },
+        { code: "6001", name: "Office & Shop Expenses", type: "expense" },
+        { code: "6002", name: "Professional Fees Expense", type: "expense" },
+        { code: "6003", name: "Rent Expense", type: "expense" },
+        { code: "6005", name: "Network Fees (Gas)", type: "expense" },
+        { code: "9999", name: "Unclassified Transaction", type: "expense" }
       ],
-      "transactions": [
+      transactions: [
+        // ───────── Base local retail + on-chain demo ─────────
         {
-          "id": "DEM-001",
-          "date": "2025-11-20",
-          "amount": 350000,
-          "currency": "NGN",
-          "description": "In-store POS sales for the day",
-          "direction": "in",
-          "counterparty_type": "customer",
-          "payment_channel": "POS"
+          id: "DEM-001",
+          date: "2025-11-20",
+          amount: 350000,
+          currency: "NGN",
+          description: "In-store POS sales for the day",
+          direction: "in",
+          counterparty_type: "customer",
+          payment_channel: "pos",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-002",
-          "date": "2025-11-20",
-          "amount": 145000,
-          "currency": "NGN",
-          "description": "Inventory purchase from local supplier (wholesale goods)",
-          "direction": "out",
-          "counterparty_type": "supplier",
-          "payment_channel": "bank_transfer"
+          id: "DEM-002",
+          date: "2025-11-20",
+          amount: 145000,
+          currency: "NGN",
+          description: "Inventory purchase from local supplier (wholesale goods)",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "bank_transfer",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-003",
-          "date": "2025-11-21",
-          "amount": 25000,
-          "currency": "NGN",
-          "description": "Office rent for November (shop space)",
-          "direction": "out",
-          "counterparty_type": "landlord",
-          "payment_channel": "bank_transfer"
+          id: "DEM-003",
+          date: "2025-11-21",
+          amount: 25000,
+          currency: "NGN",
+          description: "Office rent for November (shop space)",
+          direction: "out",
+          counterparty_type: "landlord",
+          payment_channel: "bank_transfer",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-004",
-          "date": "2025-11-21",
-          "amount": 42000,
-          "currency": "NGN",
-          "description": "Payment to freelance graphic designer for marketing flyers",
-          "direction": "out",
-          "counterparty_type": "supplier",
-          "payment_channel": "bank_transfer"
+          id: "DEM-004",
+          date: "2025-11-21",
+          amount: 42000,
+          currency: "NGN",
+          description: "Payment to freelance graphic designer for marketing flyers",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "bank_transfer",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-005",
-          "date": "2025-11-22",
-          "amount": 180000,
-          "currency": "NGN",
-          "description": "Online sales paid via bank transfer (Jumia-like order)",
-          "direction": "in",
-          "counterparty_type": "customer",
-          "payment_channel": "bank_transfer"
+          id: "DEM-005",
+          date: "2025-11-22",
+          amount: 180000,
+          currency: "NGN",
+          description: "Online sales paid via bank transfer (Jumia-like order)",
+          direction: "in",
+          counterparty_type: "customer",
+          payment_channel: "bank_transfer",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-006",
-          "date": "2025-11-23",
-          "amount": 300,
-          "currency": "USDC",
-          "description": "Online order paid in USDC on Base",
-          "direction": "in",
-          "counterparty_type": "customer",
-          "payment_channel": "onchain",
-          "chain": "base",
-          "tx_hash": "0xbase300usdcin",
-          "wallet_address": "0xHybridStoreWallet",
-          "counterparty_wallet": "0xCustomerWallet1",
-          "contract_address": null,
-          "token_symbol": "USDC",
-          "token_decimal": 6,
-          "gas_fee": 0.00025,
-          "gas_currency": "ETH"
+          id: "DEM-006",
+          date: "2025-11-23",
+          amount: 300,
+          currency: "USDC",
+          description: "Online order paid in USDC on Base",
+          direction: "in",
+          counterparty_type: "customer",
+          payment_channel: "onchain",
+          chain: "base",
+          tx_hash: "0xbase300usdcin",
+          wallet_address: "0xHybridStoreWallet",
+          counterparty_wallet: "0xCustomerWallet1",
+          contract_address: null,
+          token_symbol: "USDC",
+          token_decimal: 6,
+          gas_fee: 0.00025,
+          gas_currency: "ETH",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-007",
-          "date": "2025-11-23",
-          "amount": 120,
-          "currency": "USDC",
-          "description": "Payment to web developer in USDC for website update",
-          "direction": "out",
-          "counterparty_type": "supplier",
-          "payment_channel": "onchain",
-          "chain": "base",
-          "tx_hash": "0xbase120usdcout",
-          "wallet_address": "0xHybridStoreWallet",
-          "counterparty_wallet": "0xDeveloperWallet",
-          "contract_address": null,
-          "token_symbol": "USDC",
-          "token_decimal": 6,
-          "gas_fee": 0.00030,
-          "gas_currency": "ETH"
+          id: "DEM-007",
+          date: "2025-11-23",
+          amount: 120,
+          currency: "USDC",
+          description: "Payment to web developer in USDC for website update",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "onchain",
+          chain: "base",
+          tx_hash: "0xbase120usdcout",
+          wallet_address: "0xHybridStoreWallet",
+          counterparty_wallet: "0xDeveloperWallet",
+          contract_address: null,
+          token_symbol: "USDC",
+          token_decimal: 6,
+          gas_fee: 0.00030,
+          gas_currency: "ETH",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-008",
-          "date": "2025-11-23",
-          "amount": 0.00030,
-          "currency": "ETH",
-          "description": "Gas fee for USDC payment to web developer on Base",
-          "direction": "out",
-          "counterparty_type": "network",
-          "payment_channel": "onchain",
-          "chain": "base",
-          "tx_hash": "0xbase120usdcout",
-          "wallet_address": "0xHybridStoreWallet",
-          "counterparty_wallet": null,
-          "contract_address": null,
-          "token_symbol": "ETH",
-          "token_decimal": 18,
-          "gas_fee": 0.00030,
-          "gas_currency": "ETH"
+          id: "DEM-008",
+          date: "2025-11-23",
+          amount: 0.0003,
+          currency: "ETH",
+          description: "Gas fee for USDC payment to web developer on Base",
+          direction: "out",
+          counterparty_type: "network",
+          payment_channel: "onchain",
+          chain: "base",
+          tx_hash: "0xbase120usdcout",
+          wallet_address: "0xHybridStoreWallet",
+          counterparty_wallet: null,
+          contract_address: null,
+          token_symbol: "ETH",
+          token_decimal: 18,
+          gas_fee: 0.00030,
+          gas_currency: "ETH",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-009",
-          "date": "2025-11-24",
-          "amount": 60,
-          "currency": "PI",
-          "description": "Sale of goods paid with Pi Network at physical store",
-          "direction": "in",
-          "counterparty_type": "customer",
-          "payment_channel": "onchain",
-          "chain": "pi",
-          "tx_hash": "0xpi60sale",
-          "wallet_address": "PiBusinessWalletAddress",
-          "counterparty_wallet": "PiCustomerWallet1",
-          "contract_address": null,
-          "token_symbol": "PI",
-          "token_decimal": 8,
-          "gas_fee": 0,
-          "gas_currency": "PI"
+          id: "DEM-009",
+          date: "2025-11-24",
+          amount: 60,
+          currency: "PI",
+          description: "Sale of goods paid with Pi Network at physical store",
+          direction: "in",
+          counterparty_type: "customer",
+          payment_channel: "pi",
+          chain: "pi",
+          tx_hash: "0xpi60sale",
+          wallet_address: "PiBusinessWalletAddress",
+          counterparty_wallet: "PiCustomerWallet1",
+          contract_address: null,
+          token_symbol: "PI",
+          token_decimal: 8,
+          gas_fee: 0,
+          gas_currency: "PI",
+          tax_country: "NG"
         },
         {
-          "id": "DEM-010",
-          "date": "2025-11-24",
-          "amount": 15,
-          "currency": "PI",
-          "description": "Small business service payment to local technician in Pi",
-          "direction": "out",
-          "counterparty_type": "supplier",
-          "payment_channel": "onchain",
-          "chain": "pi",
-          "tx_hash": "0xpi15service",
-          "wallet_address": "PiBusinessWalletAddress",
-          "counterparty_wallet": "PiTechnicianWallet",
-          "contract_address": null,
-          "token_symbol": "PI",
-          "token_decimal": 8,
-          "gas_fee": 0,
-          "gas_currency": "PI"
+          id: "DEM-010",
+          date: "2025-11-24",
+          amount: 15,
+          currency: "PI",
+          description: "Small business service payment to local technician in Pi",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "pi",
+          chain: "pi",
+          tx_hash: "0xpi15service",
+          wallet_address: "PiBusinessWalletAddress",
+          counterparty_wallet: "PiTechnicianWallet",
+          contract_address: null,
+          token_symbol: "PI",
+          token_decimal: 8,
+          gas_fee: 0,
+          gas_currency: "PI",
+          tax_country: "NG"
+        },
+
+        // ───────── FX + Professional exams & education ─────────
+        {
+          id: "FX-ACCA-GBP-001",
+          date: "2025-12-01",
+          amount: 1800000,
+          currency: "NGN",
+          description: "ACCA annual subscription (GBP payment, converted to NGN)",
+          direction: "out",
+          counterparty_type: "professional_body",
+          payment_channel: "bank_transfer",
+          tax_country: "NG",
+          fx_currency: "GBP",
+          fx_amount: 1000,
+          fx_rate_to_base: 1800,
+          fx_fee: 0
+        },
+        {
+          id: "FX-CPA-USD-001",
+          date: "2025-12-01",
+          amount: 2250000,
+          currency: "NGN",
+          description: "CPA US annual dues (USD, FX fee included separately)",
+          direction: "out",
+          counterparty_type: "professional_body",
+          payment_channel: "bank_transfer",
+          tax_country: "NG",
+          fx_currency: "USD",
+          fx_amount: 1500,
+          fx_rate_to_base: 1500,
+          fx_fee: 5000
+        },
+        {
+          id: "FX-ICAN-NGN-001",
+          date: "2025-12-02",
+          amount: 180000,
+          currency: "NGN",
+          description: "ICAN exam registration (NGN local payment)",
+          direction: "out",
+          counterparty_type: "professional_body",
+          payment_channel: "card",
+          tax_country: "NG",
+          fx_currency: "NGN",
+          fx_amount: 180000,
+          fx_rate_to_base: 1,
+          fx_fee: 0
+        },
+        {
+          id: "FX-ICAN-USD-001",
+          date: "2025-12-02",
+          amount: 950000,
+          currency: "NGN",
+          description: "ICAN fees paid from diaspora in USD (converted to NGN)",
+          direction: "out",
+          counterparty_type: "professional_body",
+          payment_channel: "bank_transfer",
+          tax_country: "NG",
+          fx_currency: "USD",
+          fx_amount: 1000,
+          fx_rate_to_base: 950,
+          fx_fee: 2500
+        },
+        {
+          id: "FX-ICAN-GBP-001",
+          date: "2025-12-02",
+          amount: 1200000,
+          currency: "NGN",
+          description: "ICAN fees in GBP (UK-based student)",
+          direction: "out",
+          counterparty_type: "professional_body",
+          payment_channel: "bank_transfer",
+          tax_country: "NG",
+          fx_currency: "GBP",
+          fx_amount: 800,
+          fx_rate_to_base: 1500,
+          fx_fee: 3000
+        },
+        {
+          id: "FX-CFA-USD-001",
+          date: "2025-12-03",
+          amount: 4500000,
+          currency: "NGN",
+          description: "CFA exam + registration (USD, FX conversion to NGN)",
+          direction: "out",
+          counterparty_type: "exam_body",
+          payment_channel: "bank_transfer",
+          tax_country: "NG",
+          fx_currency: "USD",
+          fx_amount: 3000,
+          fx_rate_to_base: 1500,
+          fx_fee: 10000
+        },
+        {
+          id: "FX-SAT-USD-001",
+          date: "2025-12-03",
+          amount: 300000,
+          currency: "NGN",
+          description: "SAT exam fee (USD, NG student)",
+          direction: "out",
+          counterparty_type: "exam_body",
+          payment_channel: "card",
+          tax_country: "US",
+          fx_currency: "USD",
+          fx_amount: 200,
+          fx_rate_to_base: 1500,
+          fx_fee: 2500
+        },
+        {
+          id: "FX-TOEFL-USD-001",
+          date: "2025-12-03",
+          amount: 375000,
+          currency: "NGN",
+          description: "TOEFL exam fee (USD, NG student)",
+          direction: "out",
+          counterparty_type: "exam_body",
+          payment_channel: "card",
+          tax_country: "US",
+          fx_currency: "USD",
+          fx_amount: 250,
+          fx_rate_to_base: 1500,
+          fx_fee: 3000
+        },
+        {
+          id: "FX-UNI-UK-001",
+          date: "2025-12-05",
+          amount: 18000000,
+          currency: "NGN",
+          description: "UK university MBA tuition (GBP → NGN)",
+          direction: "out",
+          counterparty_type: "education_institution",
+          payment_channel: "bank_transfer",
+          tax_country: "UK",
+          fx_currency: "GBP",
+          fx_amount: 15000,
+          fx_rate_to_base: 1200,
+          fx_fee: 50000
+        },
+        {
+          id: "FX-SECONDARY-NG-001",
+          date: "2025-12-05",
+          amount: 350000,
+          currency: "NGN",
+          description: "Local secondary school fees (NGN)",
+          direction: "out",
+          counterparty_type: "education_institution",
+          payment_channel: "bank_transfer",
+          tax_country: "NG",
+          fx_currency: "NGN",
+          fx_amount: 350000,
+          fx_rate_to_base: 1,
+          fx_fee: 0
+        },
+
+        // ───────── Exchanges & on-chain wallets ─────────
+        {
+          id: "EX-BINANCE-IN-001",
+          date: "2025-12-06",
+          amount: 750000,
+          currency: "NGN",
+          description: "USDT deposit from Binance to business wallet (estimated NGN)",
+          direction: "in",
+          counterparty_type: "exchange",
+          payment_channel: "binance",
+          chain: "bsc",
+          token_symbol: "USDT",
+          gas_fee: 0.0003,
+          gas_currency: "BNB",
+          tax_country: "NG",
+          fx_currency: "USDT",
+          fx_amount: 500,
+          fx_rate_to_base: 1500,
+          fx_fee: 0
+        },
+        {
+          id: "EX-BINANCE-OUT-001",
+          date: "2025-12-06",
+          amount: 600000,
+          currency: "NGN",
+          description: "USDT withdrawal to Binance from business wallet",
+          direction: "out",
+          counterparty_type: "exchange",
+          payment_channel: "binance",
+          chain: "bsc",
+          token_symbol: "USDT",
+          gas_fee: 0.00025,
+          gas_currency: "BNB",
+          tax_country: "NG",
+          fx_currency: "USDT",
+          fx_amount: 400,
+          fx_rate_to_base: 1500,
+          fx_fee: 0
+        },
+        {
+          id: "EX-BYBIT-IN-001",
+          date: "2025-12-07",
+          amount: 450000,
+          currency: "NGN",
+          description: "Income from trading profits moved from Bybit to business",
+          direction: "in",
+          counterparty_type: "exchange",
+          payment_channel: "bybit",
+          chain: "eth",
+          token_symbol: "USDT",
+          gas_fee: 0.00021,
+          gas_currency: "ETH",
+          tax_country: "NG",
+          fx_currency: "USDT",
+          fx_amount: 300,
+          fx_rate_to_base: 1500,
+          fx_fee: 0
+        },
+        {
+          id: "EX-OKX-OUT-001",
+          date: "2025-12-07",
+          amount: 200000,
+          currency: "NGN",
+          description: "Payment to supplier via OKX (USDT onchain)",
+          direction: "out",
+          counterparty_type: "exchange",
+          payment_channel: "okx",
+          chain: "eth",
+          token_symbol: "USDT",
+          gas_fee: 0.00019,
+          gas_currency: "ETH",
+          tax_country: "NG",
+          fx_currency: "USDT",
+          fx_amount: 130,
+          fx_rate_to_base: 1538.46,
+          fx_fee: 0
+        },
+        {
+          id: "WAL-METAMASK-BASE-001",
+          date: "2025-12-08",
+          amount: 225000,
+          currency: "NGN",
+          description: "Payment to web developer via MetaMask on Base (USDC)",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "metamask",
+          chain: "base",
+          token_symbol: "USDC",
+          gas_fee: 0.00032,
+          gas_currency: "ETH",
+          tax_country: "NG",
+          fx_currency: "USDC",
+          fx_amount: 150,
+          fx_rate_to_base: 1500,
+          fx_fee: 0
+        },
+        {
+          id: "WAL-TON-001",
+          date: "2025-12-08",
+          amount: 150000,
+          currency: "NGN",
+          description: "TON payment received from customer",
+          direction: "in",
+          counterparty_type: "customer",
+          payment_channel: "ton",
+          chain: "ton",
+          token_symbol: "TON",
+          gas_fee: 0.02,
+          gas_currency: "TON",
+          tax_country: "NG",
+          fx_currency: "TON",
+          fx_amount: 300,
+          fx_rate_to_base: 500,
+          fx_fee: 0
+        },
+
+        // ───────── Merchants & subscriptions ─────────
+        {
+          id: "MER-AMAZON-INV-001",
+          date: "2025-12-09",
+          amount: 320000,
+          currency: "NGN",
+          description: "Electronics for office purchased on Amazon (USD)",
+          direction: "out",
+          counterparty_type: "merchant",
+          payment_channel: "amazon",
+          tax_country: "US",
+          fx_currency: "USD",
+          fx_amount: 200,
+          fx_rate_to_base: 1600,
+          fx_fee: 0
+        },
+        {
+          id: "MER-ALIBABA-INV-001",
+          date: "2025-12-09",
+          amount: 1450000,
+          currency: "NGN",
+          description: "Bulk inventory purchased on Alibaba (USD)",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "alibaba",
+          tax_country: "CN",
+          fx_currency: "USD",
+          fx_amount: 1000,
+          fx_rate_to_base: 1450,
+          fx_fee: 0
+        },
+        {
+          id: "MER-WIX-SUB-001",
+          date: "2025-12-10",
+          amount: 49000,
+          currency: "NGN",
+          description: "Monthly Wix website subscription (USD)",
+          direction: "out",
+          counterparty_type: "merchant",
+          payment_channel: "wix",
+          tax_country: "IL",
+          fx_currency: "USD",
+          fx_amount: 49,
+          fx_rate_to_base: 1000,
+          fx_fee: 0
+        },
+        {
+          id: "MER-NVIDIA-GPU-001",
+          date: "2025-12-10",
+          amount: 1200000,
+          currency: "NGN",
+          description: "NVIDIA GPU purchase for AI workloads (USD)",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "nvidia",
+          tax_country: "US",
+          fx_currency: "USD",
+          fx_amount: 800,
+          fx_rate_to_base: 1500,
+          fx_fee: 5000
+        },
+        {
+          id: "MER-INVESTOPEDIA-SUB-001",
+          date: "2025-12-11",
+          amount: 39000,
+          currency: "NGN",
+          description: "Investopedia Pro subscription (USD)",
+          direction: "out",
+          counterparty_type: "information_service",
+          payment_channel: "investopedia",
+          tax_country: "US",
+          fx_currency: "USD",
+          fx_amount: 39,
+          fx_rate_to_base: 1000,
+          fx_fee: 0
+        },
+
+        // ───────── Pi Network – income + expense ─────────
+        {
+          id: "PI-PAYMENT-STORE-001",
+          date: "2025-12-11",
+          amount: 60000,
+          currency: "NGN",
+          description: "In-store Pi Network payment for goods (valued in NGN)",
+          direction: "in",
+          counterparty_type: "customer",
+          payment_channel: "pi",
+          chain: "pi",
+          token_symbol: "PI",
+          tax_country: "NG",
+          fx_currency: "PI",
+          fx_amount: 60,
+          fx_rate_to_base: 1000,
+          fx_fee: 0
+        },
+        {
+          id: "PI-SERVICE-TECH-001",
+          date: "2025-12-11",
+          amount: 15000,
+          currency: "NGN",
+          description: "Service payment to local technician in Pi (valued in NGN)",
+          direction: "out",
+          counterparty_type: "supplier",
+          payment_channel: "pi",
+          chain: "pi",
+          token_symbol: "PI",
+          tax_country: "NG",
+          fx_currency: "PI",
+          fx_amount: 15,
+          fx_rate_to_base: 1000,
+          fx_fee: 0
         }
       ]
     };
 
+    // ─────────────────────────────────────────────
+    // DOM elements
+    // ─────────────────────────────────────────────
     const payloadInput = document.getElementById("payloadInput");
-    const web3Input = document.getElementById("web3Input");
+    const loadDemoBtn = document.getElementById("loadDemoBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const runBtn = document.getElementById("runBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+
     const outputEl = document.getElementById("output");
     const summaryEl = document.getElementById("summary");
     const analyticsEl = document.getElementById("analytics");
+    const fxOverviewEl = document.getElementById("fxOverview");
     const insightsEl = document.getElementById("insights");
     const statusEl = document.getElementById("status");
-    const runBtn = document.getElementById("runBtn");
-    const loadDemoBtn = document.getElementById("loadDemoBtn");
-    const csvFileInput = document.getElementById("csvFile");
-    const loadCsvBtn = document.getElementById("loadCsvBtn");
-    const downloadBtn = document.getElementById("downloadBtn");
-    const web3ToPayloadBtn = document.getElementById("web3ToPayloadBtn");
 
     let lastResult = null;
 
+    // ─────────────────────────────────────────────
+    // UI actions
+    // ─────────────────────────────────────────────
     loadDemoBtn.addEventListener("click", () => {
       payloadInput.value = JSON.stringify(masterDemoPayload, null, 2);
-      statusEl.textContent = "Loaded Master Demo Dataset. Click 'Run AcePi Lite' to process.";
-      outputEl.textContent = "(no response yet)";
+      statusEl.textContent = "Demo payload loaded. You can adjust it or run AcePi Lite directly.";
+    });
+
+    clearBtn.addEventListener("click", () => {
+      payloadInput.value = "";
+      outputEl.textContent = "(no output yet)";
       summaryEl.textContent = "(no summary yet)";
       analyticsEl.textContent = "(no analytics yet)";
+      fxOverviewEl.textContent = "(no FX data yet)";
+      insightsEl.textContent = "(no insights yet)";
+      statusEl.textContent = "";
       lastResult = null;
+      downloadBtn.disabled = true;
     });
 
-    function parseCsv(text) {
-      const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-      if (lines.length < 2) return [];
-      const headers = lines[0].split(",").map(h => h.trim());
-      const rows = [];
-      for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(",");
-        if (cols.length === 1 && cols[0].trim() === "") continue;
-        const row = {};
-        headers.forEach((h, idx) => {
-          row[h] = (cols[idx] || "").trim();
-        });
-        rows.push(row);
-      }
-      return rows;
-    }
-
-    function toBool(val) {
-      if (val === undefined || val === null || val === "") return null;
-      const s = String(val).trim().toLowerCase();
-      if (["true","1","yes","y"].includes(s)) return true;
-      if (["false","0","no","n"].includes(s)) return false;
-      return null;
-    }
-
-    loadCsvBtn.addEventListener("click", () => {
-      const file = csvFileInput.files && csvFileInput.files[0];
-      if (!file) {
-        statusEl.textContent = "Please choose a CSV file first.";
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const text = reader.result;
-          const rows = parseCsv(text);
-          if (!rows.length) {
-            statusEl.textContent = "CSV appears empty or invalid. Make sure it has a header row.";
-            return;
-          }
-          const transactions = rows.map((row, idx) => ({
-            id: row.id || `CSV-${idx + 1}`,
-            date: row.date || row.Date || "",
-            amount: Number(row.amount || row.Amount || 0),
-            currency: row.currency || row.Currency || "NGN",
-            description: row.description || row.Description || "",
-            direction: (row.direction || row.Direction || "").toLowerCase(),
-            counterparty_type: row.counterparty_type || row.counterparty || null,
-            payment_channel: row.payment_channel || row.channel || null,
-            chain: row.chain || row.Chain || null,
-            token_symbol: row.token_symbol || row.Token || row.TokenSymbol || null,
-            gas_fee: row.gas_fee ? Number(row.gas_fee) : null,
-            gas_currency: row.gas_currency || null,
-            country: row.country || row.Country || null,
-            tax_country: row.tax_country || row.TaxCountry || null,
-            vat_applicable_override: toBool(row.vat_applicable),
-            vat_rate_override: row.vat_rate ? Number(row.vat_rate) : null,
-            wht_applicable_override: toBool(row.wht_applicable),
-            wht_rate_override: row.wht_rate ? Number(row.wht_rate) : null,
-            fx_currency: row.fx_currency || row.FXCurrency || null,
-            fx_amount: row.fx_amount ? Number(row.fx_amount) : (row.FXAmount ? Number(row.FXAmount) : null),
-            fx_rate_to_base: row.fx_rate_to_base ? Number(row.fx_rate_to_base) : (row.FXRateToBase ? Number(row.FXRateToBase) : null),
-            fx_fee: row.fx_fee ? Number(row.fx_fee) : (row.FXFee ? Number(row.FXFee) : null)
-          }));
-
-          const payloadFromCsv = {
-            business_profile: masterDemoPayload.business_profile,
-            tax_profile: masterDemoPayload.tax_profile,
-            chart_of_accounts: masterDemoPayload.chart_of_accounts,
-            transactions
-          };
-
-          payloadInput.value = JSON.stringify(payloadFromCsv, null, 2);
-          statusEl.textContent = `CSV loaded: ${transactions.length} transactions mapped. Now click 'Run AcePi Lite'.`;
-          outputEl.textContent = "(no response yet)";
-          summaryEl.textContent = "(no summary yet)";
-          analyticsEl.textContent = "(no analytics yet)";
-          lastResult = null;
-        } catch (e) {
-          statusEl.textContent = "Error parsing CSV: " + e.message;
-        }
-      };
-      reader.onerror = () => {
-        statusEl.textContent = "Failed to read CSV file.";
-      };
-      reader.readAsText(file);
-    });
-
-    function mapWeb3JsonToTransactions(raw) {
-      let txs = [];
-      const top = raw || {};
-      if (Array.isArray(raw)) {
-        txs = raw;
-      } else if (Array.isArray(raw.transactions)) {
-        txs = raw.transactions;
-      } else {
-        throw new Error("Web3 JSON must be an array or an object with a 'transactions' array.");
-      }
-
-      const defaultChain = (top.default_chain || top.chain || "").toLowerCase() || null;
-      const defaultTaxCountry = (top.default_tax_country || top.tax_country || "").toUpperCase() || null;
-
-      return txs.map((t, idx) => ({
-        id: t.id || t.hash || t.signature || `WEB3-${idx + 1}`,
-        date: t.date || t.block_time || "",
-        amount: Number(t.amount || t.value || 0),
-        currency: t.currency || t.token_symbol || "NATIVE",
-        description: t.description || t.note || "",
-        direction: (t.direction || (t.incoming === true ? "in" : t.outgoing === true ? "out" : "")).toLowerCase(),
-        counterparty_type: t.counterparty_type || null,
-        payment_channel: t.payment_channel || "onchain",
-        chain: (t.chain || defaultChain || "").toLowerCase() || null,
-        tx_hash: t.hash || t.signature || null,
-        wallet_address: t.wallet_address || t.to || null,
-        counterparty_wallet: t.counterparty_wallet || t.from || null,
-        contract_address: t.contract_address || null,
-        token_symbol: t.token_symbol || null,
-        gas_fee: t.gas_fee ? Number(t.gas_fee) : null,
-        gas_currency: t.gas_currency || null,
-        tax_country: (t.tax_country || defaultTaxCountry || null),
-        vat_applicable_override: toBool(t.vat_applicable),
-        vat_rate_override: typeof t.vat_rate === "number" ? t.vat_rate : null,
-        wht_applicable_override: toBool(t.wht_applicable),
-        wht_rate_override: typeof t.wht_rate === "number" ? t.wht_rate : null,
-        fx_currency: t.fx_currency || null,
-        fx_amount: t.fx_amount != null ? Number(t.fx_amount) : null,
-        fx_rate_to_base: t.fx_rate_to_base != null ? Number(t.fx_rate_to_base) : null,
-        fx_fee: t.fx_fee != null ? Number(t.fx_fee) : null
-      }));
-    }
-
-    web3ToPayloadBtn.addEventListener("click", () => {
-      const raw = web3Input.value.trim();
+    runBtn.addEventListener("click", () => {
+      const raw = payloadInput.value.trim();
       if (!raw) {
-        statusEl.textContent = "Paste Web3 JSON first.";
+        statusEl.textContent = "Please paste a payload or load the demo first.";
         return;
       }
+      let parsed;
       try {
-        const parsed = JSON.parse(raw);
-        const transactions = mapWeb3JsonToTransactions(parsed);
-        const payloadFromWeb3 = {
-          business_profile: masterDemoPayload.business_profile,
-          tax_profile: masterDemoPayload.tax_profile,
-          chart_of_accounts: masterDemoPayload.chart_of_accounts,
-          transactions
-        };
-        payloadInput.value = JSON.stringify(payloadFromWeb3, null, 2);
-        statusEl.textContent = `Web3 JSON mapped: ${transactions.length} transactions prepared. Now click 'Run AcePi Lite'.`;
-        outputEl.textContent = "(no response yet)";
-        summaryEl.textContent = "(no summary yet)";
-        analyticsEl.textContent = "(no analytics yet)";
-        lastResult = null;
+        parsed = JSON.parse(raw);
       } catch (e) {
-        statusEl.textContent = "Error parsing Web3 JSON: " + e.message;
+        statusEl.textContent = "Payload is not valid JSON: " + e.message;
+        return;
+      }
+
+      try {
+        const result = acepiLiteEngine(parsed);
+        lastResult = result;
+        outputEl.textContent = JSON.stringify(result, null, 2);
+        summaryEl.textContent = buildSummary(result);
+        analyticsEl.textContent = buildAnalytics(result);
+        fxOverviewEl.textContent = buildFxOverview(result);
+        insightsEl.textContent = buildInsights(result);
+        statusEl.textContent = "Done. AcePi Lite output, summary, analytics, FX overview and insights generated.";
+        downloadBtn.disabled = false;
+      } catch (err) {
+        statusEl.textContent = "Error running AcePi Lite: " + err.message;
       }
     });
 
-    function findAccount(coa, codeFallback) {
-      const found = coa.find(a => a.code === codeFallback);
-      if (found) return found;
-      const unclassified = coa.find(a => a.code === "9999") || { code: "9999", name: "Unclassified Transaction" };
-      return unclassified;
-    }
+    downloadBtn.addEventListener("click", () => {
+      if (!lastResult) return;
+      const blob = new Blob([JSON.stringify(lastResult, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const ts = new Date().toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
+      a.href = url;
+      a.download = `acepi-output-${ts}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
 
-    function classifyNature(tx) {
-      const desc = (tx.description || "").toLowerCase();
-      const dir = tx.direction;
-      if (tx.chain) {
-        if (dir === "in") {
-          return "onchain_income";
-        } else if (dir === "out" && (tx.counterparty_type === "network" || desc.includes("gas fee"))) {
-          return "gas_fee_expense";
-        } else if (dir === "out") {
-          return "onchain_expense";
-        }
-      }
-      if (dir === "in") {
-        return "income";
-      }
-      if (dir === "out") {
-        if (desc.includes("inventory") || desc.includes("stock") || desc.includes("wholesale") || desc.includes("goods") || desc.includes("purchase")) {
-          return "goods_purchase";
-        }
-        if (desc.includes("rent") || tx.counterparty_type === "landlord") {
-          return "rent_expense";
-        }
-        if (desc.includes("designer") || desc.includes("developer") || desc.includes("service") || desc.includes("freelance") || desc.includes("consult")) {
-          return "service_expense";
-        }
-        if (tx.counterparty_type === "network" || desc.includes("gas fee")) {
-          return "gas_fee_expense";
-        }
-        return "operating_expense";
-      }
-      return "unclassified";
-    }
-
+    // ─────────────────────────────────────────────
+    // Core AcePi Lite engine
+    // ─────────────────────────────────────────────
     function acepiLiteEngine(payload) {
-      const bp = payload.business_profile || {};
-      const tp = payload.tax_profile || {};
-      const coa = payload.chart_of_accounts || [];
-      const txs = payload.transactions || [];
+      const business_profile = payload.business_profile || {};
+      const tax_profile = payload.tax_profile || {};
+      const baseCurrency = business_profile.base_currency || "NGN";
 
-      const globalVatApplicable = !!tp.vat_applicable;
-      const globalVatRate = typeof tp.vat_rate === "number" ? tp.vat_rate : 0;
-      const globalWhtEnabled = !!tp.withholding_tax_enabled;
-      const globalWhtServiceRate = typeof tp.default_wht_service_rate === "number" ? tp.default_wht_service_rate : 0;
-      const globalWhtRentRate = typeof tp.default_wht_rent_rate === "number" ? tp.default_wht_rent_rate : 0.1;
+      const txs = Array.isArray(payload.transactions) ? payload.transactions : [];
 
-      let totalInflows = 0;
-      let totalOutflows = 0;
+      const entries = [];
+      let totalIn = 0;
+      let totalOut = 0;
 
-      const entries = txs.map(tx => {
-        const nature = classifyNature(tx);
-        let category = "other";
-        if (nature === "income" || nature === "onchain_income") category = "income";
-        else if (["goods_purchase","service_expense","rent_expense","operating_expense","gas_fee_expense","onchain_expense"].includes(nature)) category = "expense";
+      txs.forEach(tx => {
+        const direction = tx.direction === "out" ? "out" : "in";
+        const rawAmount = Number(tx.amount || 0);
+        const txCurrency = tx.currency || baseCurrency;
 
-        const amount = Number(tx.amount) || 0;
-        if (tx.direction === "in") totalInflows += amount;
-        if (tx.direction === "out") totalOutflows += amount;
-
-        const taxCountryCode = (tx.tax_country || tp.country || bp.country || "NG").toString().toUpperCase();
-        const countryDefaults = defaultTaxProfiles[taxCountryCode] || defaultTaxProfiles["NG"];
-
-        // FX metadata
-        const fxCurrency = tx.fx_currency || null;
-        const fxAmount = tx.fx_amount != null ? Number(tx.fx_amount) : null;
-        const fxRate = tx.fx_rate_to_base != null ? Number(tx.fx_rate_to_base) : null;
-        const fxFee = tx.fx_fee != null ? Number(tx.fx_fee) : null;
-        let baseFromFx = null;
-        let fxDiff = null;
-        if (fxCurrency && fxAmount != null && fxRate != null) {
-          baseFromFx = +(fxAmount * fxRate).toFixed(2);
-          fxDiff = +(amount - baseFromFx).toFixed(2);
+        // Basic FX logic
+        const fx = {};
+        if (tx.fx_currency && tx.fx_amount && tx.fx_rate_to_base) {
+          fx.fx_currency = String(tx.fx_currency).toUpperCase();
+          fx.fx_amount = Number(tx.fx_amount);
+          fx.fx_rate_to_base = Number(tx.fx_rate_to_base);
+          fx.base_amount_from_fx = fx.fx_amount * fx.fx_rate_to_base;
+          fx.recorded_base_amount = rawAmount;
+          fx.fx_fee = Number(tx.fx_fee || 0);
+          fx.fx_diff = fx.recorded_base_amount - fx.base_amount_from_fx - fx.fx_fee;
+        } else {
+          fx.fx_currency = txCurrency;
+          fx.fx_amount = rawAmount;
+          fx.fx_rate_to_base = txCurrency === baseCurrency ? 1 : 1;
+          fx.base_amount_from_fx = rawAmount * fx.fx_rate_to_base;
+          fx.recorded_base_amount = rawAmount;
+          fx.fx_fee = Number(tx.fx_fee || 0);
+          fx.fx_diff = 0;
         }
 
-        let debitAcc, creditAcc;
-        if (tx.direction === "in") {
-          if (tx.chain === "base" && tx.currency === "USDC") {
-            debitAcc = findAccount(coa, "1010");
-          } else if (tx.chain === "pi") {
-            debitAcc = findAccount(coa, "1011");
-          } else {
-            debitAcc = findAccount(coa, "1000");
-          }
+        const baseAmount = fx.recorded_base_amount;
 
-          if (nature === "onchain_income") {
-            if (tx.chain === "base") {
-              creditAcc = findAccount(coa, "4010");
-            } else if (tx.chain === "pi") {
-              creditAcc = findAccount(coa, "4011");
-            } else {
-              creditAcc = findAccount(coa, "4000");
-            }
-          } else {
-            creditAcc = findAccount(coa, "4000");
-          }
-        } else if (tx.direction === "out") {
-          if (nature === "goods_purchase") {
-            debitAcc = findAccount(coa, "5000");
-          } else if (nature === "service_expense" || nature === "onchain_expense") {
-            debitAcc = findAccount(coa, "6002");
-          } else if (nature === "rent_expense") {
-            debitAcc = findAccount(coa, "6003");
-          } else if (nature === "gas_fee_expense") {
-            debitAcc = findAccount(coa, "6005");
-          } else {
-            debitAcc = findAccount(coa, "6001");
-          }
+        if (direction === "in") totalIn += baseAmount;
+        else totalOut += baseAmount;
 
-          if (tx.chain === "base" && tx.currency === "USDC") {
-            creditAcc = findAccount(coa, "1010");
-          } else if (tx.chain === "pi") {
-            creditAcc = findAccount(coa, "1011");
+        // Classification
+        const chain = (tx.chain || "OFFCHAIN").toUpperCase();
+        const payment_channel = (tx.payment_channel || "unknown").toLowerCase();
+        const desc = (tx.description || "").toLowerCase();
+
+        let category = "other";
+        let incomeCode = "4000";
+        let incomeName = "Sales Revenue (Local)";
+
+        if (chain === "BASE" || chain === "BSC" || chain === "ETH" || chain === "TON") {
+          incomeCode = "4010";
+          incomeName = "Sales Revenue (On-chain)";
+        }
+        if (chain === "PI") {
+          incomeCode = "4011";
+          incomeName = "Sales Revenue (Pi Network)";
+        }
+
+        if (direction === "in") {
+          if (desc.includes("sale") || desc.includes("sales") || desc.includes("order") || desc.includes("payment received")) {
+            category = chain === "PI" || chain === "BASE" || chain === "BSC" ? "onchain_income" : "income";
           } else {
-            creditAcc = findAccount(coa, "1000");
+            category = "income";
           }
         } else {
-          debitAcc = findAccount(coa, "9999");
-          creditAcc = findAccount(coa, "9999");
+          if (desc.includes("rent")) category = "rent_expense";
+          else if (desc.includes("inventory") || desc.includes("goods") || desc.includes("stock")) category = "goods_purchase";
+          else if (desc.includes("exam") || desc.includes("tuition") || desc.includes("school") || desc.includes("university")) category = "education_expense";
+          else if (desc.includes("subscription")) category = "subscription_expense";
+          else if (desc.includes("fee") || desc.includes("gas")) category = "network_or_fee_expense";
+          else if (desc.includes("graphic") || desc.includes("developer") || desc.includes("service") || desc.includes("professional")) category = "service_expense";
+          else category = "operating_expense";
         }
 
-        // VAT / WHT logic with overrides
-        let vatApplicableTx = false;
-        let vatAmount = 0;
-        let vatType = "none";
-        let whtApplicableTx = false;
-        let whtAmount = 0;
-        let taxCategory = "undetermined";
-        let notes = "";
+        let matched_account_code = "9999";
+        let matched_account_name = "Unclassified Transaction";
 
-        const vatOverrideFlag = tx.vat_applicable_override;
-        const vatRateOverride = typeof tx.vat_rate_override === "number" && !Number.isNaN(tx.vat_rate_override)
-          ? tx.vat_rate_override
-          : null;
-
-        const whtOverrideFlag = tx.wht_applicable_override;
-        const whtRateOverride = typeof tx.wht_rate_override === "number" && !Number.isNaN(tx.wht_rate_override)
-          ? tx.wht_rate_override
-          : null;
-
-        const effectiveVatApplicable =
-          vatOverrideFlag !== null && vatOverrideFlag !== undefined
-            ? vatOverrideFlag
-            : (countryDefaults.vat_applicable && globalVatApplicable);
-
-        const effectiveVatRate =
-          vatRateOverride !== null
-            ? vatRateOverride
-            : (globalVatRate || countryDefaults.vat_rate || 0);
-
-        const effectiveWhtServiceRate =
-          whtRateOverride !== null
-            ? whtRateOverride
-            : (countryDefaults.wht_service ?? globalWhtServiceRate);
-
-        const effectiveWhtRentRate =
-          whtRateOverride !== null
-            ? whtRateOverride
-            : (countryDefaults.wht_rent ?? globalWhtRentRate);
-
-        const whtEnabledEffective = globalWhtEnabled || (effectiveWhtServiceRate > 0 || effectiveWhtRentRate > 0);
-
-        if (category === "income" && effectiveVatApplicable) {
-          vatApplicableTx = true;
-          const baseVal = amount / (1 + effectiveVatRate);
-          vatAmount = +(amount - baseVal).toFixed(2);
-          vatType = "output";
-          taxCategory = "taxable income";
-          notes = `Income transaction in ${taxCountryCode}; treated as taxable revenue with output VAT.`;
-        } else if (category === "expense" && effectiveVatApplicable && nature !== "gas_fee_expense") {
-          vatApplicableTx = true;
-          const baseVal = amount / (1 + effectiveVatRate);
-          vatAmount = +(amount - baseVal).toFixed(2);
-          vatType = "input";
-          taxCategory = "allowable expense";
-          notes = `Business expense in ${taxCountryCode}; treated as allowable with input VAT.`;
-        } else if (category === "expense" && nature === "gas_fee_expense") {
-          vatApplicableTx = false;
-          vatAmount = 0;
-          vatType = "none";
-          taxCategory = "allowable expense";
-          notes = "Gas/network fee; treated as allowable expense without VAT.";
-        }
-
-        if (whtEnabledEffective && tx.direction === "out") {
-          if (nature === "service_expense" || nature === "onchain_expense") {
-            const rate = effectiveWhtServiceRate || 0;
-            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === undefined || whtOverrideFlag === true)) {
-              whtApplicableTx = true;
-              whtAmount = +(amount * rate).toFixed(2);
-              notes += (notes ? " " : "") + `Withholding tax on services applied at ${(rate * 100).toFixed(1)}%.`;
-            }
-          } else if (nature === "rent_expense") {
-            const rate = effectiveWhtRentRate || 0;
-            if (rate > 0 && (whtOverrideFlag === null || whtOverrideFlag === undefined || whtOverrideFlag === true)) {
-              whtApplicableTx = true;
-              whtAmount = +(amount * rate).toFixed(2);
-              notes += (notes ? " " : "") + `Withholding tax on rent applied at ${(rate * 100).toFixed(1)}%.`;
-            }
+        if (direction === "in") {
+          matched_account_code = incomeCode;
+          matched_account_name = incomeName;
+        } else {
+          if (category === "goods_purchase") {
+            matched_account_code = "5000";
+            matched_account_name = "Cost of Goods Sold";
+          } else if (category === "rent_expense") {
+            matched_account_code = "6003";
+            matched_account_name = "Rent Expense";
+          } else if (category === "service_expense" || category === "education_expense" || category === "subscription_expense") {
+            matched_account_code = "6002";
+            matched_account_name = "Professional Fees Expense";
+          } else if (category === "network_or_fee_expense") {
+            matched_account_code = "6005";
+            matched_account_name = "Network Fees (Gas)";
+          } else {
+            matched_account_code = "6001";
+            matched_account_name = "Office & Shop Expenses";
           }
         }
 
-        if (whtOverrideFlag === false) {
-          whtApplicableTx = false;
-          whtAmount = 0;
+        const classification = {
+          category,
+          matched_account_code,
+          matched_account_name,
+          confidence_score: 0.9
+        };
+
+        // Ledger entry (double entry)
+        let debit, credit;
+        if (direction === "in") {
+          debit = { code: "1000", name: "Cash and Bank", amount: baseAmount };
+          credit = { code: matched_account_code, name: matched_account_name, amount: baseAmount };
+        } else {
+          debit = { code: matched_account_code, name: matched_account_name, amount: baseAmount };
+          credit = { code: "1000", name: "Cash and Bank", amount: baseAmount };
         }
 
-        if (!taxCategory || taxCategory === "undetermined") {
-          if (category === "income") taxCategory = "taxable income";
-          else if (category === "expense") taxCategory = "allowable expense";
-        }
+        const ledger_entry = { debit, credit };
 
-        const confidence =
-          nature === "unclassified" ? 0.6 :
-          nature === "operating_expense" ? 0.8 : 0.95;
+        // Tax analysis
+        const taxCountry = tx.tax_country || tax_profile.country || business_profile.country || "Unknown";
+        const tax_analysis = buildTaxAnalysis(baseAmount, direction, category, tax_profile);
 
-        return {
-          transaction_id: tx.id || null,
+        entries.push({
+          transaction_id: tx.id || tx.tx_id || tx.hash || "TX-" + (entries.length + 1),
+          date: tx.date || null,
           raw_description: tx.description || "",
+          amount: baseAmount,
+          original_amount: rawAmount,
+          original_currency: txCurrency,
+          direction,
+          tax_country: taxCountry,
           chain: tx.chain || null,
           tx_hash: tx.tx_hash || null,
           wallet_address: tx.wallet_address || null,
           counterparty_wallet: tx.counterparty_wallet || null,
-          direction: tx.direction || null,
-          payment_channel: tx.payment_channel || null,
-          classification: {
-            category: nature,
-            matched_account_code: creditAcc.code || "9999",
-            matched_account_name: creditAcc.name || "Unclassified Transaction",
-            confidence_score: confidence
-          },
-          tax_country: taxCountryCode,
-          ledger_entry: {
-            debit: {
-              code: debitAcc.code,
-              name: debitAcc.name,
-              amount: amount
-            },
-            credit: {
-              code: creditAcc.code,
-              name: creditAcc.name,
-              amount: amount
-            }
-          },
-          fx: {
-            fx_currency: fxCurrency,
-            fx_amount: fxAmount,
-            fx_rate_to_base: fxRate,
-            base_amount_from_fx: baseFromFx,
-            recorded_base_amount: amount,
-            fx_fee: fxFee,
-            fx_diff: fxDiff
-          },
-          tax_analysis: {
-            vat_applicable: vatApplicableTx,
-            vat_amount: vatAmount,
-            vat_type: vatType,
-            withholding_tax_applicable: whtApplicableTx,
-            withholding_tax_amount: whtAmount,
-            tax_category: taxCategory,
-            tax_notes: notes
-          }
-        };
+          payment_channel,
+          counterparty_type: tx.counterparty_type || null,
+          classification,
+          ledger_entry,
+          tax_analysis,
+          fx
+        });
       });
 
+      const summary = {
+        total_transactions: entries.length,
+        total_inflows: Number(totalIn.toFixed(4)),
+        total_outflows: Number(totalOut.toFixed(4)),
+        notes: "Generated by AcePi Lite in the browser. For production, connect to the full AcePi engine."
+      };
+
       return {
-        business_profile: {
-          industry: bp.industry || null,
-          country: bp.country || null,
-          base_currency: bp.base_currency || null
-        },
-        summary: {
-          total_transactions: txs.length,
-          total_inflows: totalInflows,
-          total_outflows: totalOutflows,
-          notes: "Generated by AcePi Lite multi-country + FX-aware rule engine in the browser. For production, connect to the full AcePi LLM engine."
-        },
+        business_profile,
+        summary,
         entries
       };
     }
 
+    function buildTaxAnalysis(amount, direction, category, tax_profile) {
+      const vat_applicable = !!tax_profile.vat_applicable;
+      const vat_rate = Number(tax_profile.vat_rate || 0);
+      const treatInclusive = !!tax_profile.treat_sales_as_vat_inclusive;
+      const withholdingEnabled = !!tax_profile.withholding_tax_enabled;
+
+      let vat_amount = 0;
+      let vat_type = "none";
+
+      if (vat_applicable && vat_rate > 0) {
+        if (direction === "in") {
+          // Income side → output VAT
+          if (treatInclusive) {
+            vat_amount = amount - amount / (1 + vat_rate);
+          } else {
+            vat_amount = amount * vat_rate;
+          }
+          vat_type = "output";
+        } else {
+          // Expense side → input VAT
+          if (treatInclusive) {
+            vat_amount = amount - amount / (1 + vat_rate);
+          } else {
+            vat_amount = amount * vat_rate;
+          }
+          vat_type = "input";
+        }
+      }
+
+      let withholding_tax_applicable = false;
+      let withholding_tax_amount = 0;
+
+      if (withholdingEnabled && direction === "out") {
+        if (category === "rent_expense") {
+          withholding_tax_applicable = true;
+          withholding_tax_amount = amount * Number(tax_profile.default_wht_rent_rate || 0.10);
+        } else if (category === "service_expense" || category === "education_expense" || category === "subscription_expense") {
+          withholding_tax_applicable = true;
+          withholding_tax_amount = amount * Number(tax_profile.default_wht_service_rate || 0.10);
+        } else if (category === "goods_purchase") {
+          withholding_tax_applicable = false;
+        }
+      }
+
+      let tax_category = "other";
+      if (direction === "in") tax_category = "taxable income";
+      else tax_category = "allowable expense";
+
+      return {
+        vat_applicable,
+        vat_amount: Number(vat_amount.toFixed(4)),
+        vat_type,
+        withholding_tax_applicable,
+        withholding_tax_amount: Number(withholding_tax_amount.toFixed(4)),
+        tax_category,
+        tax_notes: "Lite estimate only – final treatment depends on detailed tax rules and documentation."
+      };
+    }
+
+    // ─────────────────────────────────────────────
+    // Summary, analytics, FX overview & insights
+    // ─────────────────────────────────────────────
     function buildSummary(result) {
       if (!result) return "(no summary yet)";
+      const s = result.summary || {};
+      const bp = result.business_profile || {};
+
       const lines = [];
-      const summary = result.summary || {};
-      lines.push(`Total transactions: ${summary.total_transactions ?? "n/a"}`);
-      lines.push(`Total inflows: ${summary.total_inflows ?? 0}`);
-      lines.push(`Total outflows: ${summary.total_outflows ?? 0}`);
+      if (bp.business_name) lines.push(`Business: ${bp.business_name}`);
+      if (bp.industry) lines.push(`Industry: ${bp.industry}`);
+      if (bp.country) lines.push(`Country: ${bp.country}`);
+      if (bp.base_currency) lines.push(`Base currency: ${bp.base_currency}`);
       lines.push("");
+      lines.push(`Total transactions: ${s.total_transactions ?? 0}`);
+      lines.push(`Total inflows: ${Number(s.total_inflows || 0).toFixed(2)}`);
+      lines.push(`Total outflows: ${Number(s.total_outflows || 0).toFixed(2)}`);
+      const net = (Number(s.total_inflows || 0) - Number(s.total_outflows || 0)).toFixed(2);
+      lines.push(`Net: ${net}`);
+      if (s.notes) {
+        lines.push("");
+        lines.push(s.notes);
+      }
+      return lines.join("\n");
+    }
 
-          function buildInsights(result) {
-      if (!result) return "(no insights yet)";
+    function buildAnalytics(result) {
+      if (!result || !Array.isArray(result.entries)) return "(no analytics yet)";
+      const entries = result.entries;
 
-      const entries = result.entries || [];
+      const byCategory = {};
+      const byChain = {};
+      const byChannel = {};
+
+      entries.forEach(e => {
+        const amt = Number(e.amount || 0);
+        const cat = (e.classification && e.classification.category) || "unknown";
+        const chain = (e.chain || "OFFCHAIN").toUpperCase();
+        const channel = (e.payment_channel || "unknown").toLowerCase();
+
+        if (!byCategory[cat]) byCategory[cat] = 0;
+        byCategory[cat] += amt;
+
+        if (!byChain[chain]) byChain[chain] = 0;
+        byChain[chain] += amt;
+
+        if (!byChannel[channel]) byChannel[channel] = 0;
+        byChannel[channel] += amt;
+      });
+
+      const lines = [];
+      lines.push("By category (sum of base amounts):");
+      Object.keys(byCategory).sort().forEach(cat => {
+        lines.push(`• ${cat}: ${byCategory[cat].toFixed(2)}`);
+      });
+
+      lines.push("");
+      lines.push("By chain (sum of base amounts):");
+      Object.keys(byChain).sort().forEach(ch => {
+        lines.push(`• ${ch}: ${byChain[ch].toFixed(2)}`);
+      });
+
+      lines.push("");
+      lines.push("By payment channel (sum of base amounts):");
+      Object.keys(byChannel).sort().forEach(ch => {
+        lines.push(`• ${ch}: ${byChannel[ch].toFixed(2)}`);
+      });
+
+      return lines.join("\n");
+    }
+
+    function buildFxOverview(result) {
+      if (!result || !Array.isArray(result.entries)) return "(no FX data yet)";
+      const entries = result.entries;
+      const perFx = {};
+
+      entries.forEach(e => {
+        const fx = e.fx || null;
+        if (!fx || !fx.fx_currency) return;
+        const cur = fx.fx_currency.toUpperCase();
+        if (!perFx[cur]) {
+          perFx[cur] = {
+            count: 0,
+            fx_amount: 0,
+            base_from_fx: 0,
+            recorded_base: 0,
+            fx_fee: 0,
+            fx_diff: 0
+          };
+        }
+        const b = perFx[cur];
+        b.count++;
+        b.fx_amount += Number(fx.fx_amount || 0);
+        b.base_from_fx += Number(fx.base_amount_from_fx || 0);
+        b.recorded_base += Number(fx.recorded_base_amount || 0);
+        b.fx_fee += Number(fx.fx_fee || 0);
+        b.fx_diff += Number(fx.fx_diff || 0);
+      });
+
+      const keys = Object.keys(perFx);
+      if (!keys.length) return "(no FX data yet)";
+
+      const lines = [];
+      keys.sort().forEach(cur => {
+        const b = perFx[cur];
+        lines.push(
+          `${cur}: tx=${b.count}, fx_amount=${b.fx_amount.toFixed(2)}, base_from_fx=${b.base_from_fx.toFixed(2)}, recorded_base=${b.recorded_base.toFixed(2)}, fx_fee=${b.fx_fee.toFixed(2)}, fx_diff=${b.fx_diff.toFixed(2)}`
+        );
+      });
+      return lines.join("\n");
+    }
+
+    function buildInsights(result) {
+      if (!result || !Array.isArray(result.entries)) return "(no insights yet)";
+      const entries = result.entries;
+      if (!entries.length) return "(no insights yet)";
+
       const summary = result.summary || {};
-      if (!entries.length) return "(no transactions to analyse yet)";
+      const totalTx = summary.total_transactions ?? entries.length;
+      const totalIn = Number(summary.total_inflows || 0);
+      const totalOut = Number(summary.total_outflows || 0);
+      const net = totalIn - totalOut;
 
-      // Aggregate by country, FX, chain, channel like a mini BI layer
       const perCountry = {};
       const perFx = {};
       const perChain = {};
       const perChannel = {};
 
       entries.forEach(e => {
-        const amt = Number(
-          e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount
-            ? e.ledger_entry.debit.amount
-            : 0
-        );
+        const amt = Number(e.amount || 0);
         const dir = e.direction || null;
         const inflowAmt = dir === "in" ? amt : 0;
         const outflowAmt = dir === "out" ? amt : 0;
@@ -1508,26 +1216,25 @@
         if (!perCountry[country]) {
           perCountry[country] = { count: 0, inflows: 0, outflows: 0, vat: 0, wht: 0 };
         }
-        const cBucket = perCountry[country];
-        cBucket.count++;
-        cBucket.inflows += inflowAmt;
-        cBucket.outflows += outflowAmt;
+        const c = perCountry[country];
+        c.count++;
+        c.inflows += inflowAmt;
+        c.outflows += outflowAmt;
         if (e.tax_analysis) {
-          cBucket.vat += Number(e.tax_analysis.vat_amount || 0);
-          cBucket.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
+          c.vat += Number(e.tax_analysis.vat_amount || 0);
+          c.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
         }
 
         const fx = e.fx || null;
         if (fx && fx.fx_currency) {
           const cur = fx.fx_currency.toUpperCase();
           if (!perFx[cur]) {
-            perFx[cur] = { count: 0, fx_amount: 0, base_from_fx: 0, recorded_base: 0 };
+            perFx[cur] = { count: 0, fx_amount: 0, recorded_base: 0 };
           }
-          const fBucket = perFx[cur];
-          fBucket.count++;
-          if (fx.fx_amount != null) fBucket.fx_amount += Number(fx.fx_amount) || 0;
-          if (fx.base_amount_from_fx != null) fBucket.base_from_fx += Number(fx.base_amount_from_fx) || 0;
-          if (fx.recorded_base_amount != null) fBucket.recorded_base += Number(fx.recorded_base_amount) || 0;
+          const f = perFx[cur];
+          f.count++;
+          if (fx.fx_amount != null) f.fx_amount += Number(fx.fx_amount) || 0;
+          if (fx.recorded_base_amount != null) f.recorded_base += Number(fx.recorded_base_amount) || 0;
         }
 
         const chain = (e.chain || "OFFCHAIN").toUpperCase();
@@ -1541,7 +1248,6 @@
         perChannel[channel].volume += amt;
       });
 
-      // Helper to get "top" entry by a numeric field
       function topBy(obj, field) {
         const keys = Object.keys(obj);
         if (!keys.length) return null;
@@ -1555,17 +1261,12 @@
       const topChain = topBy(perChain, "volume");
       const topChannel = topBy(perChannel, "volume");
 
-      const totalTx = summary.total_transactions ?? entries.length;
-      const totalIn = summary.total_inflows ?? 0;
-      const totalOut = summary.total_outflows ?? 0;
-      const net = +(totalIn - totalOut).toFixed(2);
-
       const lines = [];
 
       lines.push("Ace Insights – Draft Narrative");
       lines.push("================================");
       lines.push("");
-      lines.push(`1) Executive Snapshot`);
+      lines.push("1) Executive Snapshot");
       lines.push(
         `• Transactions processed: ${totalTx} | Total inflows: ${totalIn.toFixed(2)} | Total outflows: ${totalOut.toFixed(2)} | Net: ${net.toFixed(2)}`
       );
@@ -1592,14 +1293,16 @@
 
       lines.push("");
       lines.push("2) Tax & Compliance Signals");
-      Object.keys(perCountry).sort().forEach(ct => {
-        const c = perCountry[ct];
-        lines.push(
-          `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}`
-        );
-      });
-      if (!Object.keys(perCountry).length) {
+      const countryKeys = Object.keys(perCountry).sort();
+      if (!countryKeys.length) {
         lines.push("• No tax country breakdown available.");
+      } else {
+        countryKeys.forEach(ct => {
+          const c = perCountry[ct];
+          lines.push(
+            `• ${ct}: VAT = ${c.vat.toFixed(2)}, WHT = ${c.wht.toFixed(2)}, tx = ${c.count}, net = ${(c.inflows - c.outflows).toFixed(2)}`
+          );
+        });
       }
 
       lines.push("");
@@ -1611,7 +1314,7 @@
         fxKeys.sort().forEach(cur => {
           const f = perFx[cur];
           lines.push(
-            `• ${cur}: fx_amount=${f.fx_amount.toFixed(2)}, base_from_fx=${f.base_from_fx.toFixed(2)}, recorded_base=${f.recorded_base.toFixed(2)}`
+            `• ${cur}: fx_amount=${f.fx_amount.toFixed(2)}, recorded_base=${f.recorded_base.toFixed(2)}`
           );
         });
       }
@@ -1623,9 +1326,7 @@
         lines.push("• Chains:");
         chainKeys.forEach(ch => {
           const b = perChain[ch];
-          lines.push(
-            `   - ${ch}: tx=${b.count}, volume=${b.volume.toFixed(2)}`
-          );
+          lines.push(`   - ${ch}: tx=${b.count}, volume=${b.volume.toFixed(2)}`);
         });
       }
       const chanKeys = Object.keys(perChannel).sort();
@@ -1633,231 +1334,27 @@
         lines.push("• Payment channels:");
         chanKeys.forEach(ch => {
           const b = perChannel[ch];
-          lines.push(
-            `   - ${ch}: tx=${b.count}, volume=${b.volume.toFixed(2)}`
-          );
+          lines.push(`   - ${ch}: tx=${b.count}, volume=${b.volume.toFixed(2)}`);
         });
       }
 
       lines.push("");
       lines.push("5) X / Twitter Draft (You can refine)");
       lines.push("");
-      lines.push(`Hook: Today’s ledger tells a deeper story than just numbers.`);
+      lines.push("Hook: Today’s ledger tells a deeper story than just numbers.");
       lines.push(
-        `Body: We processed ${totalTx} transactions across ${Object.keys(perCountry).length || 1} tax jurisdictions, with net cash flow of ${net.toFixed(2)} in base currency. `
-        + (topChain ? `On-chain activity on ${topChain.key} is emerging as a key rail, ` : "")
-        + (topFx ? `while ${topFx.key} remains the primary FX exposure.` : "")
+        `Body: We processed ${totalTx} transactions across ${countryKeys.length || 1} tax jurisdictions, with net cash flow of ${net.toFixed(2)} in base currency.` +
+          (topChain ? ` On-chain activity on ${topChain.key} is emerging as a key rail,` : "") +
+          (topFx ? ` while ${topFx.key} remains the primary FX exposure.` : "")
       );
       lines.push(
-        `CTA: If you’re not reading your on-chain and FX flows like a story, you’re leaving strategy on the table.`
+        "CTA: If you’re not reading your on-chain and FX flows like a story, you’re leaving strategy on the table."
       );
       lines.push("");
       lines.push("→ Copy, personalise, add scripture/insight, then post.");
 
       return lines.join("\n");
     }
-
-      const entries = result.entries || [];
-      const perCountry = {};
-      const perFx = {};
-
-      entries.forEach(e => {
-        const country = e.tax_country || "Unknown";
-        if (!perCountry[country]) {
-          perCountry[country] = { inflows: 0, outflows: 0, vat: 0, wht: 0, count: 0 };
-        }
-        const bucket = perCountry[country];
-        bucket.count++;
-        const amt = Number(e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount ? e.ledger_entry.debit.amount : 0);
-        const dir = e.direction || null;
-        if (dir === "in") bucket.inflows += amt;
-        else if (dir === "out") bucket.outflows += amt;
-        if (e.tax_analysis) {
-          bucket.vat += Number(e.tax_analysis.vat_amount || 0);
-          bucket.wht += Number(e.tax_analysis.withholding_tax_amount || 0);
-        }
-
-        const fx = e.fx || null;
-        if (fx && fx.fx_currency) {
-          const c = fx.fx_currency.toUpperCase();
-          if (!perFx[c]) {
-            perFx[c] = { fx_amount: 0, base_from_fx: 0, recorded_base: 0, fx_fee: 0, count: 0 };
-          }
-          const fb = perFx[c];
-          fb.count++;
-          if (fx.fx_amount != null) fb.fx_amount += Number(fx.fx_amount) || 0;
-          if (fx.base_amount_from_fx != null) fb.base_from_fx += Number(fx.base_amount_from_fx) || 0;
-          fb.recorded_base += amt;
-          if (fx.fx_fee != null) fb.fx_fee += Number(fx.fx_fee) || 0;
-        }
-      });
-
-      lines.push("Per tax country:");
-      const countries = Object.keys(perCountry);
-      if (!countries.length) {
-        lines.push("- (no country-level data found)");
-      } else {
-        countries.sort().forEach(ct => {
-          const b = perCountry[ct];
-          lines.push(
-            `- ${ct}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}, VAT=${b.vat.toFixed(2)}, WHT=${b.wht.toFixed(2)}`
-          );
-        });
-      }
-
-      lines.push("");
-      lines.push("FX overview (by original currency):");
-      const fxKeys = Object.keys(perFx);
-      if (!fxKeys.length) {
-        lines.push("- (no FX data found)");
-      } else {
-        fxKeys.sort().forEach(cur => {
-          const b = perFx[cur];
-          lines.push(
-            `- ${cur}: tx=${b.count}, fx_amount=${b.fx_amount.toFixed(2)}, base_from_fx=${b.base_from_fx.toFixed(2)}, recorded_base=${b.recorded_base.toFixed(2)}, fx_fee_total=${b.fx_fee.toFixed(2)}`
-          );
-        });
-      }
-
-      lines.push("");
-      lines.push("Note: FX fields are informational in this Lite engine. Base amounts are taken from 'amount'; FX blocks show conversions and differences.");
-      return lines.join("\n");
-    }
-
-    function buildAnalytics(result) {
-      if (!result) return "(no analytics yet)";
-      const entries = result.entries || [];
-      if (!entries.length) return "(no analytics yet)";
-
-      const perCategory = {};
-      const perChain = {};
-      const perChannel = {};
-
-      entries.forEach(e => {
-        const amt = Number(e.ledger_entry && e.ledger_entry.debit && e.ledger_entry.debit.amount ? e.ledger_entry.debit.amount : 0);
-        const dir = e.direction || null;
-        const inflowAmt = dir === "in" ? amt : 0;
-        const outflowAmt = dir === "out" ? amt : 0;
-
-        const cat = (e.classification && e.classification.category) || "unknown";
-        if (!perCategory[cat]) perCategory[cat] = { count: 0, inflows: 0, outflows: 0 };
-        perCategory[cat].count++;
-        perCategory[cat].inflows += inflowAmt;
-        perCategory[cat].outflows += outflowAmt;
-
-        const chain = (e.chain || "OFFCHAIN").toUpperCase();
-        if (!perChain[chain]) perChain[chain] = { count: 0, inflows: 0, outflows: 0 };
-        perChain[chain].count++;
-        perChain[chain].inflows += inflowAmt;
-        perChain[chain].outflows += outflowAmt;
-
-        const channel = (e.payment_channel || "unknown").toLowerCase();
-        if (!perChannel[channel]) perChannel[channel] = { count: 0, inflows: 0, outflows: 0 };
-        perChannel[channel].count++;
-        perChannel[channel].inflows += inflowAmt;
-        perChannel[channel].outflows += outflowAmt;
-      });
-
-      const lines = [];
-
-      lines.push("By classification category:");
-      const catKeys = Object.keys(perCategory);
-      if (!catKeys.length) {
-        lines.push("- (no category data)");
-      } else {
-        catKeys.sort().forEach(c => {
-          const b = perCategory[c];
-          lines.push(
-            `- ${c}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}`
-          );
-        });
-      }
-
-      lines.push("");
-      lines.push("By chain (off-chain vs Base vs Pi etc.):");
-      const chainKeys = Object.keys(perChain);
-      if (!chainKeys.length) {
-        lines.push("- (no chain data)");
-      } else {
-        chainKeys.sort().forEach(ch => {
-          const b = perChain[ch];
-          lines.push(
-            `- ${ch}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}`
-          );
-        });
-      }
-
-      lines.push("");
-      lines.push("By payment channel:");
-      const chanKeys = Object.keys(perChannel);
-      if (!chanKeys.length) {
-        lines.push("- (no channel data)");
-      } else {
-        chanKeys.sort().forEach(ch => {
-          const b = perChannel[ch];
-          lines.push(
-            `- ${ch}: tx=${b.count}, inflows=${b.inflows.toFixed(2)}, outflows=${b.outflows.toFixed(2)}`
-          );
-        });
-      }
-
-      return lines.join("\n");
-    }
-
-    runBtn.addEventListener("click", () => {
-            const result = acepiLiteEngine(parsed);
-      lastResult = result;
-      outputEl.textContent = JSON.stringify(result, null, 2);
-      summaryEl.textContent = buildSummary(result);
-      analyticsEl.textContent = buildAnalytics(result);
-      insightsEl.textContent = buildInsights(result);
-      statusEl.textContent = "Done. AcePi Lite output, summary, analytics, FX overview and insights generated.";
-      lastResult = null;
-        return;
-      }
-      let parsed;
-      try {
-        parsed = JSON.parse(raw);
-      } catch (e) {
-        statusEl.textContent = "Payload is not valid JSON. Please fix and try again.";
-        outputEl.textContent = "";
-        summaryEl.textContent = "(no summary yet)";
-        analyticsEl.textContent = "(no analytics yet)";
-        lastResult = null;
-        return;
-      }
-      statusEl.textContent = "Running AcePi Lite engine locally...";
-      const result = acepiLiteEngine(parsed);
-      lastResult = result;
-      outputEl.textContent = JSON.stringify(result, null, 2);
-      summaryEl.textContent = buildSummary(result);
-      analyticsEl.textContent = buildAnalytics(result);
-      statusEl.textContent = "Done. AcePi Lite output, summary, analytics, and FX overview generated.";
-    });
-
-    downloadBtn.addEventListener("click", () => {
-      if (!lastResult) {
-        statusEl.textContent = "No result to download yet. Run AcePi Lite first.";
-        return;
-      }
-      try {
-        const jsonStr = JSON.stringify(lastResult, null, 2);
-        const blob = new Blob([jsonStr], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        const now = new Date();
-        const stamp = now.toISOString().slice(0, 19).replace(/[:T]/g, "");
-        a.href = url;
-        a.download = `acepi-output-${stamp}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        statusEl.textContent = "Downloaded AcePi JSON output.";
-      } catch (e) {
-        statusEl.textContent = "Could not generate download: " + e.message;
-      }
-    });
   </script>
 </body>
 </html>
